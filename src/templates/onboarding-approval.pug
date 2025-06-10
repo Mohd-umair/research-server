@@ -1,0 +1,16 @@
+doctype html
+html
+  head
+    title Teacher Onboarding Approval
+  body
+    h1 Congratulations, #{name}!
+    p Your onboarding request has been approved. Below are your credentials:
+    p
+      strong Username:
+      span #{email}
+    p
+      strong Password:
+      span #{password}
+    p Please log in to your account using the following link:
+    a(href=loginUrl) Log in to your account
+    p Thank you for joining us!
