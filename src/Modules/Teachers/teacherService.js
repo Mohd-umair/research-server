@@ -197,6 +197,7 @@ const teacherService = {
     lastName: teacher.lastName,
     name: teacher.name || `${teacher.firstName} ${teacher.lastName}`,
     email: teacher.email,
+    phoneNumber: teacher.phoneNumber,
     userType: "expert",
     isApproved: teacher.isApproved // Include approval status in response
   };

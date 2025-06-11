@@ -54,17 +54,29 @@ const verifyToken = (req, res, next) => {
 
     // Extract token from "Bearer TOKEN" format
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    console.log('Extracted token:', token);
+    console.log('Extracted token:', token ? 'Token present' : 'No token');
 
     if (!token) {
       return res.status(401).json({ msg: "Token missing from Authorization header" });
     }
 
     const decodedUser = jwt.verify(token, process.env.JWT_SECRET); // Verify the token
+    console.log('Decoded user from token:', { 
+      _id: decodedUser._id, 
+      firstName: decodedUser.firstName, 
+      userType: decodedUser.userType 
+    });
+    
     req.body.createdBy = decodedUser._id;
     req.body.decodedUser = decodedUser;
     req.body.userRole = decodedUser.role; // Attach decoded user to request object
     req.decodedUser = decodedUser;
+    
+    console.log('Added to req.body:', { 
+      createdBy: req.body.createdBy, 
+      userRole: req.body.userRole 
+    });
+    
     next();
   } catch (error) {
     console.error('Token verification error:', error);
