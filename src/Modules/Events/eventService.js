@@ -10,11 +10,14 @@ const eventService = {
   }),
 
   getAll: serviceHandler(async (data) => {
-    const role = data.userRole;
+    const { userRole, createdBy } = data;
     const query = { isDelete: false };
-    if (role === "TEACHER") {
-      query.createdBy = data.createdBy;
+    
+    // Filter by current user for all roles - each user should only see their own events
+    if (createdBy) {
+      query.createdBy = createdBy;
     }
+    
     const { search, status, type } = data;
     
     // Add search functionality
@@ -37,7 +40,7 @@ const eventService = {
     }
 
     const savedData = await model.getAllDocuments(query);
-    const totalCount = await model.totalCounts({ isDelete: false });
+    const totalCount = await model.totalCounts(query);
     
     return { savedData, totalCount };
   }),

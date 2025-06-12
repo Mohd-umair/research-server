@@ -29,12 +29,17 @@ const teacherCollaborationService = {
         userRole
       } = queryParams;
 
-      const filter = { isDeleted: false };
-
-      // Apply filters
-      if (createdBy) {
-        filter.createdBy = createdBy;
+      // Ensure createdBy is provided for user filtering
+      if (!createdBy) {
+        throw new Error("User ID (createdBy) is required for filtering teacher collaborations");
       }
+
+      const filter = { 
+        isDeleted: false,
+        createdBy: createdBy // Filter by current user - only show their own collaborations
+      };
+
+      console.log('TeacherCollaboration filter:', filter);
 
       if (isActive !== undefined) {
         filter.isActive = isActive;
@@ -45,11 +50,6 @@ const teacherCollaborationService = {
           { title: { $regex: search, $options: 'i' } },
           { description: { $regex: search, $options: 'i' } }
         ];
-      }
-
-      // For non-admin users, only show active collaborations
-      if (userRole !== 'ADMIN') {
-        filter.isActive = true;
       }
 
       const sortOptions = {};
@@ -66,6 +66,8 @@ const teacherCollaborationService = {
           .exec(),
         TeacherCollaboration.countDocuments(filter)
       ]);
+
+      console.log(`Found ${savedData.length} teacher collaborations for user ${createdBy}`);
 
       return {
         savedData,

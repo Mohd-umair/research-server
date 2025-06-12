@@ -4,7 +4,7 @@ const router = require("express").Router();
 
 // CRUD Routes
 router.post("/create", verifyToken, eventCtrl.create);
-router.post("/getAll", eventCtrl.getAll);
+router.post("/getAll", verifyToken, eventCtrl.getAll);
 router.post("/getById", eventCtrl.getById);
 router.post("/update", verifyToken, eventCtrl.update);
 router.post("/delete", verifyToken, eventCtrl.delete);

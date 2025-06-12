@@ -7,7 +7,7 @@ const teacherCollaborationRouter = require("express").Router();
 teacherCollaborationRouter.post("/create", verifyToken, teacherCollaborationCtrl.create);
 
 // Get all teacher collaborations
-teacherCollaborationRouter.post("/getAll", teacherCollaborationCtrl.getAll);
+teacherCollaborationRouter.post("/getAll", verifyToken, teacherCollaborationCtrl.getAll);
 
 // Get teacher collaboration by ID
 teacherCollaborationRouter.post("/getById", teacherCollaborationCtrl.getById);

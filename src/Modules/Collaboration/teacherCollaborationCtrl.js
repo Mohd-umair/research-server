@@ -44,6 +44,13 @@ const teacherCollaborationCtrl = {
     try {
       const queryParams = req.body;
       
+      // Ensure we're filtering by the logged-in user's ID
+      const loggedInUserId = req.body.decodedUser._id;
+      console.log('Logged in user ID for teacher collaborations:', loggedInUserId);
+      
+      // Override createdBy to ensure we only get data for the logged-in user
+      queryParams.createdBy = loggedInUserId;
+      
       const result = await teacherCollaborationService.getAllTeacherCollaborations(queryParams);
 
       return successResponse({

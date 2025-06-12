@@ -14,7 +14,17 @@ const consultancyCardService = {
   getAll: serviceHandler(async (data) => {
     const { search = "", userRole, createdBy, skip = 0, limit = 10 } = data;
 
-    const query = { isDelete: false };
+    // Ensure createdBy is provided for user filtering
+    if (!createdBy) {
+      throw new Error("User ID (createdBy) is required for filtering consultancy cards");
+    }
+
+    const query = { 
+      isDelete: false,
+      teacherId: createdBy // Filter by current user - only show their own consultancy cards
+    };
+    
+    console.log('ConsultancyCard filter query:', query);
     
     // Apply search filter
     if (search && search.trim()) {
@@ -38,19 +48,14 @@ const consultancyCardService = {
     // Get paginated results
     const results = await model.getAllDocuments(query, options);
 
-    // Filter by user role if needed
-    const filteredData = userRole === "TEACHER"
-      ? results.filter((item) => item.teacherId?._id.toString() === createdBy.toString())
-      : results;
+    console.log(`Found ${results.length} consultancy cards for user ${createdBy}`);
 
     return {
-      data: filteredData,
-      totalCount: userRole === "TEACHER" 
-        ? filteredData.length 
-        : totalCount,
+      data: results,
+      totalCount: totalCount,
       currentPage: Math.floor(skip / limit) + 1,
-      totalPages: Math.ceil((userRole === "TEACHER" ? filteredData.length : totalCount) / limit),
-      hasNextPage: skip + limit < (userRole === "TEACHER" ? filteredData.length : totalCount),
+      totalPages: Math.ceil(totalCount / limit),
+      hasNextPage: skip + limit < totalCount,
       hasPrevPage: skip > 0
     };
   }),

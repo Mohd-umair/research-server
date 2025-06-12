@@ -24,6 +24,7 @@ const webinarEnrollmentRouter = require("./WebinarEnrollment/webinarEnrollmentRo
 const { paymentRouter } = require("./Payment/paymentRouter");
 const uploadRouter = require("./Upload/uploadRouter");
 const { eventRouter } = require("./Events/eventRouter");
+const { userRequestRouter } = require("./UserRequest/userRequestRouter");
 
 const adminRouter = require("express").Router();
 const userRouter = require("express").Router();
@@ -49,6 +50,7 @@ adminRouter.use("/withdraw", withdrawalRouter);
 adminRouter.use("/upload", uploadRouter);
 adminRouter.use("/events", verifyToken, eventRouter);
 adminRouter.use("/teacher-collaboration", verifyToken, teacherCollaborationRouter);
+adminRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 
@@ -68,5 +70,6 @@ userRouter.use("/collaboration", collaborationRequestRouter);
 userRouter.use("/teacheronboarding",teacherOnBoardingRouter);
 userRouter.use("/webinarEnrollment",verifyToken, webinarEnrollmentRouter);
 userRouter.use("/payment",paymentRouter)
+userRouter.use("/user-request", userRequestRouter);
 
 module.exports = { adminRouter, userRouter };
