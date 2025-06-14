@@ -88,6 +88,17 @@ const userRequestCtrl = {
 
         const newRequest = await userRequestService.createRequest(newRequestData);
 
+        // Check if a document was found immediately
+        if (newRequest.foundDocument) {
+          return successResponse({
+            res,
+            data: newRequest,
+            msg: newRequest.message || "Document found and is available for download",
+            documentFound: true,
+            documentDetails: newRequest.foundDocument
+          });
+        }
+
         return successResponse({
           res,
           data: newRequest,
@@ -117,13 +128,15 @@ const userRequestCtrl = {
         res,
         data: result.data,
         count: result.totalCount,
+        userRequestsCount: result.userRequestsCount,
+        paperRequestsCount: result.paperRequestsCount,
         pagination: {
           currentPage: result.currentPage,
           totalPages: result.totalPages,
           hasNextPage: result.hasNextPage,
           hasPrevPage: result.hasPrevPage
         },
-        msg: "User requests fetched successfully",
+        msg: `Found ${result.data.length} requests (${result.userRequestsCount} user requests + ${result.paperRequestsCount} matching paper requests)`,
       });
     } catch (error) {
       next(error);

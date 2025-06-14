@@ -8,6 +8,12 @@ const CollaborationSchema = new mongoose.Schema(
       ref: "Student",
       required: true,
     },
+    userType: {
+      type: String,
+      enum: ["USER", "TEACHER"],
+      required: true,
+      default: "USER"
+    },
     isDelete: {
       type: Boolean,
       default: false,

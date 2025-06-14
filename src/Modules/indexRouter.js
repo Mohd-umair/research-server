@@ -71,5 +71,7 @@ userRouter.use("/teacheronboarding",teacherOnBoardingRouter);
 userRouter.use("/webinarEnrollment",verifyToken, webinarEnrollmentRouter);
 userRouter.use("/payment",paymentRouter)
 userRouter.use("/user-request", userRequestRouter);
+userRouter.use("/collaboration", collaborationRequestRouter);
+
 
 module.exports = { adminRouter, userRouter };

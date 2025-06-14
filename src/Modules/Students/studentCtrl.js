@@ -5,6 +5,7 @@ const asyncHandler = require("../../Utils/asyncHandler");
 const StudentService = require("./studentService");
 const SignupValidationSchema = require("../../middlewares/validation/SignupValidationSchema");
 const SignInValidationSchema = require("../../middlewares/validation/SigninvalidationSchema");
+const ProfileValidationSchema = require("../../middlewares/validation/ProfileValidationSchema");
 const jwt = require("jsonwebtoken");
 
 const studentCtrl = {
@@ -116,6 +117,93 @@ const studentCtrl = {
       return res.status(500).json({ msg: "Server Error" });
     }
   },
+
+  // Profile-specific controller methods
+  getCurrentProfile: asyncHandler(async (req, res, next) => {
+    const userId = req.decodedUser._id;
+    const profile = await StudentService.getCurrentProfile(userId);
+    
+    return successResponse({
+      res,
+      data: profile,
+      msg: "Profile retrieved successfully",
+    });
+  }),
+
+  updateProfile: [
+    ProfileValidationSchema,
+    asyncHandler(async (req, res, next) => {
+      const errors = validationResult(req);
+      
+      if (!errors.isEmpty()) {
+        throw new CustomError(400, errors.array().map(err => err.msg).join(', '));
+      }
+      
+      const userId = req.decodedUser._id;
+      const profileData = req.body;
+      
+      const updatedProfile = await StudentService.updateProfile(userId, profileData);
+      
+      return successResponse({
+        res,
+        data: updatedProfile,
+        msg: "Profile updated successfully",
+      });
+    })
+  ],
+
+  uploadProfilePicture: asyncHandler(async (req, res, next) => {
+    const userId = req.decodedUser._id;
+    const { profilePictureUrl } = req.body;
+    
+    if (!profilePictureUrl) {
+      throw new CustomError(400, "Profile picture URL is required");
+    }
+    
+    const updatedProfile = await StudentService.uploadProfilePicture(userId, profilePictureUrl);
+    
+    return successResponse({
+      res,
+      data: updatedProfile,
+      msg: "Profile picture updated successfully",
+    });
+  }),
+
+  getProfileCompletionStatus: asyncHandler(async (req, res, next) => {
+    const userId = req.decodedUser._id;
+    const completionStatus = await StudentService.getProfileCompletionStatus(userId);
+    
+    return successResponse({
+      res,
+      data: completionStatus,
+      msg: "Profile completion status retrieved successfully",
+    });
+  }),
+
+  searchStudents: asyncHandler(async (req, res, next) => {
+    const { search, skip = 0, limit = 10 } = req.body;
+    
+    const queryParams = {
+      skip: parseInt(skip),
+      limit: parseInt(limit)
+    };
+    
+    const result = await StudentService.searchStudents(search, queryParams);
+    
+    return successResponse({
+      res,
+      data: result.students,
+      count: result.totalCount,
+      pagination: {
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        totalCount: result.totalCount,
+        hasNextPage: result.currentPage < result.totalPages,
+        hasPrevPage: result.currentPage > 1
+      },
+      msg: "Students retrieved successfully",
+    });
+  }),
 };
 
 module.exports = studentCtrl;

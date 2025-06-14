@@ -108,6 +108,7 @@ const teacherCollaborationService = {
     try {
       // Remove fields that shouldn't be updated directly
       const { _id, createdBy, createdAt, updatedAt, ...validUpdateData } = updateData;
+      console.timeLog
 
       const updatedCollaboration = await TeacherCollaboration.findOneAndUpdate(
         { _id: collaborationId, isDeleted: false },

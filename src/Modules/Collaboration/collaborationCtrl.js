@@ -1,6 +1,6 @@
 const successResponse = require("../../Utils/apiResponse");
 const asyncHandler = require("../../Utils/asyncHandler");
-const collaborationService = require("./collaborationService");
+const teacherCollaborationService = require("./teacherCollaborationService");
 const CustomError = require("../../Errors/CustomError"); // Ensure you import CustomError
 const collaborationValidationSchema = require("../../middlewares/validation/colaborationvalidationschema");
 const { validationResult } = require("express-validator");
@@ -16,34 +16,76 @@ const collaborationRequestCtrl = {
       } else {
         const docDTO = req.body;
         
-        const newCollaboration = await collaborationService.createCollaboration(
+        // Ensure userType is set to USER for user collaborations
+        if (!docDTO.userType) {
+          docDTO.userType = 'USER';
+        }
+        
+        const newCollaboration = await teacherCollaborationService.createTeacherCollaboration(
           docDTO
         );
         return successResponse({
           res,
           data: newCollaboration,
-          msg: "New Collaboration Created",
+          msg: "User New Collaboration Created",
         });
       }
     }),
   ],
-  getAll: asyncHandler(async (req, res, next) => {
-    const collaborationDto = req.body;
+  // getAll: asyncHandler(async (req, res, next) => {
+  //   const collaborationDto = req.body;
+    
+  //   // Ensure we only get USER collaborations for this endpoint
+  //   collaborationDto.userType = 'USER';
 
-    const { savedData, totalCount } =
-      await collaborationService.getAllCollaborations(collaborationDto);
+  //   const { savedData, totalCount } =
+  //     await teacherCollaborationService.getAllTeacherCollaborations(collaborationDto);
 
-    return successResponse({
-      res,
-      data: savedData,
-      count: totalCount,
-      msg: "All Collaborations Fetched",
-    });
+  //   return successResponse({
+  //     res,
+  //     data: savedData,
+  //     count: totalCount,
+  //     msg: "All Collaborations Fetched",
+  //   });
+  // }),
+
+
+
+   // Get all teacher collaborations
+   getAll: asyncHandler(async (req, res, next) => {
+    try {
+      const queryParams = req.body;
+
+      console.log(queryParams);
+      
+      // Ensure we're filtering by the logged-in user's ID
+      const loggedInUserId = req.body.decodedUser._id;      
+      // Override createdBy to ensure we only get data for the logged-in user
+      queryParams.createdBy = loggedInUserId;
+      
+      const result = await teacherCollaborationService.getAllTeacherCollaborations(queryParams);
+
+      return successResponse({
+        res,
+        data: result.savedData,
+        count: result.totalCount,
+        pagination: {
+          currentPage: result.currentPage,
+          totalPages: result.totalPages,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage
+        },
+        msg: "Collaborations fetched successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
   }),
+
 
   getById: asyncHandler(async (req, res, next) => {
     const { paperId } = req.body;
-    const collaboration = await collaborationService.getCollaborationById(
+    const collaboration = await teacherCollaborationService.getTeacherCollaborationById(
       paperId
     );
 
@@ -58,33 +100,34 @@ const collaborationRequestCtrl = {
     });
   }),
 
+  // Update teacher collaboration
   update: asyncHandler(async (req, res, next) => {
-    const { paperId, studentId, ...updateData } = req.body;
+    try {
+      const { _id, ...updateData } = req.body;
 
-    const collaboration = await collaborationService.getCollaborationById({
-      _id: paperId,
-    });
+      if (!_id) {
+        throw new CustomError(400, "Collaboration ID is required");
+      }
 
-    if (!collaboration) {
-      throw new CustomError(404, "Collaboration not found");
+      const updatedCollaboration = await teacherCollaborationService.updateTeacherCollaboration(
+        _id,
+        updateData
+      );
+
+      return successResponse({
+        res,
+        data: updatedCollaboration,
+        msg: "Teacher collaboration updated successfully",
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const updatedCollaboration = await collaborationService.updateCollaboration(
-      paperId,
-      updateData
-    );
-
-    successResponse({
-      res,
-      data: updatedCollaboration,
-      msg: "Collaboration updated successfully",
-    });
   }),
 
   delete: asyncHandler(async (req, res, next) => {
-    const { paperId, studentId } = req.body;
+    const { paperId } = req.body;
 
-    const collaboration = await collaborationService.getCollaborationById(
+    const collaboration = await teacherCollaborationService.getTeacherCollaborationById(
       paperId
     );
 
@@ -92,7 +135,7 @@ const collaborationRequestCtrl = {
       throw new CustomError(404, "Collaboration not found");
     }
 
-    await collaborationService.deleteCollaboration(paperId);
+    await teacherCollaborationService.deleteTeacherCollaboration(paperId);
 
     successResponse({
       res,
@@ -102,7 +145,7 @@ const collaborationRequestCtrl = {
 
   search: asyncHandler(async (req, res, next) => {
     const { query } = req.body;
-    const results = await collaborationService.searchCollaborations(query);
+    const results = await teacherCollaborationService.searchTeacherCollaborations(query);
     successResponse({
       res,
       data: results,
@@ -112,8 +155,7 @@ const collaborationRequestCtrl = {
 
   getByStudentId: asyncHandler(async (req, res, next) => {
     const { studentId } = req.body;
-    const collaborations =
-      await collaborationService.getCollaborationsByStudentId(studentId);
+    const collaborations = await teacherCollaborationService.getCollaborationsByTeacherId(studentId);
     successResponse({
       res,
       data: collaborations,

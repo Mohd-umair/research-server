@@ -117,6 +117,126 @@ const student ={
   return savedUser;
 }),
 
+  // Profile-specific methods
+  getCurrentProfile: serviceHandler(async (userId) => {
+    const query = { _id: userId, isDelete: false };
+    const student = await model.getDocument(query);
+    
+    if (!student) {
+      throw new CustomError(404, "Student profile not found");
+    }
+    
+    // Remove password from response
+    const studentProfile = student.toObject();
+    delete studentProfile.password;
+    
+    // Add profile completion data
+    studentProfile.completionPercentage = student.getProfileCompletionPercentage();
+    studentProfile.missingFields = student.getMissingProfileFields();
+    
+    return studentProfile;
+  }),
+
+  updateProfile: serviceHandler(async (userId, profileData) => {
+    const query = { _id: userId, isDelete: false };
+    const existingStudent = await model.getDocument(query);
+    
+    if (!existingStudent) {
+      throw new CustomError(404, "Student not found");
+    }
+
+    // Prepare update data (exclude email and password from profile updates)
+    const { email, password, ...updateData } = profileData;
+    
+    const updatedStudent = await model.updateDocument(
+      query,
+      { ...updateData, updatedAt: new Date() },
+      { new: true }
+    );
+    
+    // Remove password from response
+    const studentProfile = updatedStudent.toObject();
+    delete studentProfile.password;
+    
+    return studentProfile;
+  }),
+
+  uploadProfilePicture: serviceHandler(async (userId, profilePictureUrl) => {
+    const query = { _id: userId, isDelete: false };
+    const existingStudent = await model.getDocument(query);
+    
+    if (!existingStudent) {
+      throw new CustomError(404, "Student not found");
+    }
+
+    const updatedStudent = await model.updateDocument(
+      query,
+      { profilePicture: profilePictureUrl, updatedAt: new Date() },
+      { new: true }
+    );
+    
+    // Remove password from response
+    const studentProfile = updatedStudent.toObject();
+    delete studentProfile.password;
+    
+    return studentProfile;
+  }),
+
+  getProfileCompletionStatus: serviceHandler(async (userId) => {
+    const query = { _id: userId, isDelete: false };
+    const student = await model.getDocument(query);
+    
+    if (!student) {
+      throw new CustomError(404, "Student not found");
+    }
+
+    const completionPercentage = student.getProfileCompletionPercentage();
+    const missingFields = student.getMissingProfileFields();
+    const isComplete = completionPercentage === 100;
+
+    return {
+      isComplete,
+      completionPercentage,
+      missingFields,
+      totalFields: 8,
+      completedFields: 8 - missingFields.length
+    };
+  }),
+
+  // Search students by name, email, or college
+  searchStudents: serviceHandler(async (searchQuery, queryParams = {}) => {
+    const { skip = 0, limit = 10 } = queryParams;
+    
+    let query = { isDelete: false };
+
+    if (searchQuery) {
+      query.$or = [
+        { firstName: { $regex: searchQuery, $options: 'i' } },
+        { lastName: { $regex: searchQuery, $options: 'i' } },
+        { email: { $regex: searchQuery, $options: 'i' } },
+        { collegeName: { $regex: searchQuery, $options: 'i' } },
+        { department: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+
+    const students = await model.getAllDocuments(query, { skip, limit });
+    const totalCount = await model.totalCounts(query);
+
+    // Remove passwords from all student records
+    const studentsWithoutPasswords = students.map(student => {
+      const studentObj = student.toObject();
+      delete studentObj.password;
+      return studentObj;
+    });
+
+    return { 
+      students: studentsWithoutPasswords, 
+      totalCount,
+      currentPage: Math.floor(skip / limit) + 1,
+      totalPages: Math.ceil(totalCount / limit)
+    };
+  }),
+
 };
 
 const StudentService = studentService;

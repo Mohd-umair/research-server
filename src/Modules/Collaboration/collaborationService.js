@@ -10,8 +10,8 @@ const collaborationService = {
   },
 
   getAllCollaborations: async (data) => {
-    const query = { isDelete: false };
-    const { search } = data;
+    const { userType = 'USER', search } = data;
+    const query = { isDelete: false, userType };
 
     let savedData, totalCount=0;
     if (search) {
@@ -32,7 +32,6 @@ const collaborationService = {
       totalCount = await model.totalCounts(query);
     }
 
-
     return { savedData, totalCount };
   },
 
@@ -48,9 +47,21 @@ const collaborationService = {
     return await model.deleteDocument({ _id :paperId });
   },
 
-  getCollaborationsByStudentId: async (studentId) => {
-    const filter = { createdBy: studentId };
+  getCollaborationsByStudentId: async (studentId, userType = 'USER') => {
+    const filter = { createdBy: studentId, userType, isDelete: false };
     return await model.getAllDocuments(filter);
+  },
+
+  searchCollaborations: async (query, userType = 'USER') => {
+    const searchCondition = {
+      isDelete: false,
+      userType,
+      $or: [
+        { title: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } },
+      ],
+    };
+    return await model.getAllDocuments(searchCondition);
   },
 };
 
