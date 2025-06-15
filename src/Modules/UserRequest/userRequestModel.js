@@ -89,7 +89,7 @@ const userRequestSchema = new mongoose.Schema(
     adminResponse: {
       respondedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Admin",
+        ref: "Teacher",
       },
       responseMessage: String,
       responseDate: Date,

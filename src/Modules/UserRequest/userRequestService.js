@@ -6,62 +6,7 @@ const userRequestService = {
   // Create a new user request
   createRequest: async (requestData) => {
     try {
-      // If this is a document request, check for existing papers in PaperRequest collection only
-      if (requestData.type === 'Document') {
-        const documentDetails = requestData.documentDetails;
-        let foundPaperRequest = null;
-
-        // Check PaperRequest collection for approved papers with file URLs
-        if (documentDetails && documentDetails.doi) {
-          foundPaperRequest = await PaperRequest.findOne({
-            DOI_number: documentDetails.doi,
-            requestStatus: 'approved',
-            isDelete: false,
-            fileUrl: { $exists: true, $ne: "" }
-          }).populate('requestBy');
-        }
-
-        // If not found by DOI in PaperRequest, check by title in paperDetail
-        if (!foundPaperRequest && documentDetails && documentDetails.title) {
-          foundPaperRequest = await PaperRequest.findOne({
-            'paperDetail.title': { $regex: new RegExp(`^${documentDetails.title.trim()}$`, 'i') },
-            requestStatus: 'approved',
-            isDelete: false,
-            fileUrl: { $exists: true, $ne: "" }
-          }).populate('requestBy');
-        }
-
-        // If found in PaperRequest, return immediately with document link
-        if (foundPaperRequest) {
-          return {
-            _id: null,
-            type: 'Document',
-            status: 'Approved',
-            title: requestData.title || foundPaperRequest.paperDetail?.title || 'Document Request',
-            description: requestData.description || `Document found in paper requests collection`,
-            documentDetails: {
-              ...documentDetails,
-              title: foundPaperRequest.paperDetail?.title,
-              doi: foundPaperRequest.DOI_number
-            },
-            foundDocument: {
-              id: foundPaperRequest._id,
-              title: foundPaperRequest.paperDetail?.title,
-              doi: foundPaperRequest.DOI_number,
-              fileUrl: foundPaperRequest.fileUrl,
-              viewUrl: foundPaperRequest.fileUrl,
-              downloadUrl: foundPaperRequest.fileUrl,
-              paperDetail: foundPaperRequest.paperDetail,
-              source: 'PaperRequest'
-            },
-            message: 'Document found! You can view and download it immediately.',
-            createdAt: new Date(),
-            requestBy: requestData.requestBy
-          };
-        }
-      }
-
-      // If no existing document found, create the request normally
+      // Create the request normally without any database updates to existing records
       const newRequest = new UserRequest(requestData);
       const savedRequest = await newRequest.save();
       return await UserRequest.findById(savedRequest._id)
@@ -143,111 +88,73 @@ const userRequestService = {
 
       console.log(`Found ${userRequests.length} user requests for user ${requestBy}`);
 
-      // Get all paper requests that match DOI numbers or titles from user requests
-      const matchingPaperRequests = [];
-      
-      // Extract DOI numbers and titles from user requests for matching
-      const documentRequests = userRequests.filter(req => req.type === 'Document');
-      const doiNumbers = [];
-      const titles = [];
+      // For each document request, check if matching paper exists and add foundDocument key
+      const enhancedUserRequests = await Promise.all(
+        userRequests.map(async (userRequest) => {
+          // Only check for document type requests
+          if (userRequest.type === 'Document' && userRequest.documentDetails) {
+            const documentDetails = userRequest.documentDetails;
+            let foundPaperRequest = null;
 
-      documentRequests.forEach(docRequest => {
-        if (docRequest.documentDetails?.doi) {
-          doiNumbers.push(docRequest.documentDetails.doi);
-        }
-        if (docRequest.documentDetails?.title) {
-          titles.push(docRequest.documentDetails.title.trim());
-        }
-      });
-
-      // Find paper requests that match DOI numbers or titles exactly
-      if (doiNumbers.length > 0 || titles.length > 0) {
-        const paperRequestFilter = {
-          isDelete: false,
-          requestStatus: 'approved',
-          fileUrl: { $exists: true, $ne: "" },
-          $or: []
-        };
-
-        if (doiNumbers.length > 0) {
-          paperRequestFilter.$or.push({
-            DOI_number: { $in: doiNumbers }
-          });
-        }
-
-        if (titles.length > 0) {
-          paperRequestFilter.$or.push({
-            'paperDetail.title': { 
-              $in: titles.map(title => new RegExp(`^${title}$`, 'i'))
+            // Check PaperRequest collection for approved papers with file URLs
+            if (documentDetails.doi) {
+              foundPaperRequest = await PaperRequest.findOne({
+                DOI_number: documentDetails.doi,
+                requestStatus: 'approved',
+                isDelete: false,
+                fileUrl: { $exists: true, $ne: "" }
+              }).populate('requestBy').lean();
             }
-          });
-        }
 
-        const paperRequests = await PaperRequest.find(paperRequestFilter)
-          .populate('requestBy', 'firstName lastName email')
-          .populate('fulfilledBy', 'firstName lastName email')
-          .lean()
-          .exec();
+            // If not found by DOI, check by title
+            if (!foundPaperRequest && documentDetails.title) {
+              foundPaperRequest = await PaperRequest.findOne({
+                'paperDetail.title': { $regex: new RegExp(`^${documentDetails.title.trim()}$`, 'i') },
+                requestStatus: 'approved',
+                isDelete: false,
+                fileUrl: { $exists: true, $ne: "" }
+              }).populate('requestBy').lean();
+            }
 
-        // Transform paper requests to match user request structure
-        paperRequests.forEach(paperRequest => {
-          matchingPaperRequests.push({
-            _id: paperRequest._id,
-            type: 'Document',
-            status: 'Approved',
-            title: paperRequest.paperDetail?.title || 'Paper Request',
-            description: `Paper available for download - DOI: ${paperRequest.DOI_number}`,
-            requestBy: paperRequest.requestBy,
-            createdAt: paperRequest.createdAt,
-            updatedAt: paperRequest.updatedAt,
-            priority: 'Medium',
-            documentDetails: {
-              title: paperRequest.paperDetail?.title,
-              doi: paperRequest.DOI_number,
-              author: paperRequest.paperDetail?.author || []
-            },
-            foundDocument: {
-              id: paperRequest._id,
-              title: paperRequest.paperDetail?.title,
-              doi: paperRequest.DOI_number,
-              fileUrl: paperRequest.fileUrl,
-              viewUrl: paperRequest.fileUrl,
-              downloadUrl: paperRequest.fileUrl,
-              paperDetail: paperRequest.paperDetail,
-              source: 'PaperRequest'
-            },
-            isPaperRequest: true, // Flag to identify paper requests
-            originalPaperRequest: paperRequest
-          });
-        });
-      }
+            // If matching paper found, add foundDocument key to the user request
+            if (foundPaperRequest) {
+              return {
+                ...userRequest,
+                foundDocument: {
+                  id: foundPaperRequest._id,
+                  title: foundPaperRequest.paperDetail?.title,
+                  doi: foundPaperRequest.DOI_number,
+                  fileUrl: foundPaperRequest.fileUrl,
+                  viewUrl: foundPaperRequest.fileUrl,
+                  downloadUrl: foundPaperRequest.fileUrl,
+                  paperDetail: foundPaperRequest.paperDetail,
+                  requestBy: foundPaperRequest.requestBy,
+                  createdAt: foundPaperRequest.createdAt,
+                  updatedAt: foundPaperRequest.updatedAt,
+                  source: 'PaperRequest',
+                  matchedBy: documentDetails.doi ? 'DOI' : 'Title'
+                },
+                status: 'Approved', // Update status to show document is available
+                message: 'Document found and available for download!'
+              };
+            }
+          }
+          
+          // Return original request if no matching document found
+          return userRequest;
+        })
+      );
 
-      console.log(`Found ${matchingPaperRequests.length} matching paper requests`);
-
-      // Combine user requests and matching paper requests
-      const allRequests = [...userRequests, ...matchingPaperRequests];
-      
-      // Sort combined results
-      allRequests.sort((a, b) => {
-        const aDate = new Date(a.createdAt);
-        const bDate = new Date(b.createdAt);
-        return sortOrder === 'desc' ? bDate - aDate : aDate - bDate;
-      });
-
-      // Apply pagination to combined results
-      const totalCombinedCount = allRequests.length;
-      const paginatedResults = allRequests.slice(skip, skip + parseInt(limit));
-
-      console.log(`Returning ${paginatedResults.length} total requests (${userRequests.length} user requests + ${matchingPaperRequests.length} paper requests)`);
+      console.log(`Enhanced ${enhancedUserRequests.length} user requests with foundDocument info`);
 
       return {
-        data: paginatedResults,
-        totalCount: totalCombinedCount,
+        data: enhancedUserRequests,
+        totalCount: userRequestsCount,
         userRequestsCount: userRequestsCount,
-        paperRequestsCount: matchingPaperRequests.length,
+        paperRequestsCount: 0, // Not needed anymore since we're enhancing existing requests
         currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCombinedCount / limit),
-        hasNextPage: page * limit < totalCombinedCount,
+        totalPages: Math.ceil(userRequestsCount / limit),
+        hasNextPage: page * limit < userRequestsCount,
         hasPrevPage: page > 1
       };
     } catch (error) {

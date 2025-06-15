@@ -3,10 +3,31 @@ const CustomError = require("../../Errors/CustomError");
 const successResponse = require("../../Utils/apiResponse");
 const asyncHandler = require("../../Utils/asyncHandler");
 const StudentService = require("./studentService");
-const SignupValidationSchema = require("../../middlewares/validation/SignupValidationSchema");
-const SignInValidationSchema = require("../../middlewares/validation/SigninvalidationSchema");
-const ProfileValidationSchema = require("../../middlewares/validation/ProfileValidationSchema");
+const { SignupValidationSchema, SignInValidationSchema, ProfileValidationSchema } = require("./studentValidation");
 const jwt = require("jsonwebtoken");
+const multer = require('multer');
+const cloudinary = require("../../Service/cloudinaryConfig");
+
+// Configure multer for profile picture uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, GIF, WebP) are allowed!'), false);
+    }
+  }
+});
 
 const studentCtrl = {
   create: [
@@ -131,6 +152,7 @@ const studentCtrl = {
   }),
 
   updateProfile: [
+    upload.single('profilePicture'), // Add multer middleware for file upload
     ProfileValidationSchema,
     asyncHandler(async (req, res, next) => {
       const errors = validationResult(req);
@@ -140,7 +162,49 @@ const studentCtrl = {
       }
       
       const userId = req.decodedUser._id;
-      const profileData = req.body;
+      let profileData = req.body;
+      
+      // Handle profile picture upload if file is provided
+      if (req.file) {
+        try {
+          console.log('Profile picture file received:', {
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size
+          });
+
+          // Upload to Cloudinary
+          const uploadResult = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_stream(
+              {
+                resource_type: 'image',
+                folder: 'student-profiles',
+                transformation: [
+                  { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+                  { quality: 'auto' },
+                  { format: 'auto' }
+                ]
+              },
+              (error, result) => {
+                if (error) {
+                  console.error('Cloudinary upload error:', error);
+                  reject(error);
+                } else {
+                  console.log('Cloudinary upload success:', result.secure_url);
+                  resolve(result);
+                }
+              }
+            ).end(req.file.buffer);
+          });
+
+          // Add the uploaded image URL to profile data
+          profileData.profilePicture = uploadResult.secure_url;
+          
+        } catch (uploadError) {
+          console.error('Error uploading profile picture:', uploadError);
+          throw new CustomError(500, 'Failed to upload profile picture');
+        }
+      }
       
       const updatedProfile = await StudentService.updateProfile(userId, profileData);
       

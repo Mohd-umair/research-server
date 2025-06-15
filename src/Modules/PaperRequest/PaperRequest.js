@@ -30,6 +30,33 @@ const paperRequestSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Access tracking fields
+    accessCount: {
+      type: Number,
+      default: 0,
+    },
+    lastAccessedAt: {
+      type: Date,
+    },
+    lastAccessedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Student",
+    },
+    accessHistory: [{
+      accessedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Student",
+      },
+      accessedAt: {
+        type: Date,
+        default: Date.now,
+      },
+      accessType: {
+        type: String,
+        enum: ["document_request", "direct_download", "view"],
+        default: "document_request",
+      }
+    }],
   },
   { timestamps: true }
 );
