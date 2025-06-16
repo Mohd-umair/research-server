@@ -106,6 +106,13 @@ const userRequestSchema = new mongoose.Schema(
       }
     }],
     
+    // Document fulfillment confirmation
+    isFulfilled: {
+      type: Boolean,
+      default: false,
+      description: "Whether the user has confirmed that the found document meets their requirements"
+    },
+    
     isDeleted: {
       type: Boolean,
       default: false,

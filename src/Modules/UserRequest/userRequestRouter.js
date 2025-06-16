@@ -1,7 +1,13 @@
 const { verifyToken } = require("../../Utils/utils");
 const userRequestCtrl = require("./userRequestCtrl");
+const { websiteUserRequestRouter } = require("./websiteUserRequestRouter");
 const userRequestRouter = require("express").Router();
 
+// ===== WEBSITE PUBLIC ROUTES =====
+// Mount website-specific routes
+userRequestRouter.use("/website", websiteUserRequestRouter);
+
+// ===== AUTHENTICATED USER ROUTES =====
 // Create new user request
 userRequestRouter.post("/create", verifyToken, userRequestCtrl.create);
 
@@ -22,6 +28,9 @@ userRequestRouter.post("/getStatistics", verifyToken, userRequestCtrl.getStatist
 
 // Update request status (for admin use)
 userRequestRouter.post("/updateStatus", verifyToken, userRequestCtrl.updateStatus);
+
+// Update fulfillment status (user confirms/rejects found document)
+userRequestRouter.post("/updateFulfillmentStatus", verifyToken, userRequestCtrl.updateFulfillmentStatus);
 
 // Search user requests
 userRequestRouter.post("/search", verifyToken, userRequestCtrl.search);

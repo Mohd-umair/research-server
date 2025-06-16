@@ -284,6 +284,60 @@ const userRequestCtrl = {
     } catch (error) {
       next(error);
     }
+  }),
+
+  // Get all unfulfilled user requests for website (public view)
+  getAllUnfulfilledForWebsite: asyncHandler(async (req, res, next) => {
+    try {
+      const queryParams = req.query; // Use query params for GET request
+      
+      const result = await userRequestService.getAllUnfulfilledRequestsForWebsite(queryParams);
+
+      return successResponse({
+        res,
+        data: result.data,
+        count: result.totalCount,
+        pagination: {
+          currentPage: result.currentPage,
+          totalPages: result.totalPages,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage
+        },
+        msg: `Found ${result.data.length} unfulfilled research requests`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }),
+
+  // Update fulfillment status
+  updateFulfillmentStatus: asyncHandler(async (req, res, next) => {
+    try {
+      const { _id, isFulfilled } = req.body;
+      const loggedInUserId = req.body.decodedUser._id;
+
+      if (!_id || typeof isFulfilled !== 'boolean') {
+        throw new CustomError(400, "Request ID and fulfillment status (boolean) are required");
+      }
+
+      const updatedRequest = await userRequestService.updateFulfillmentStatus(
+        _id,
+        isFulfilled,
+        loggedInUserId
+      );
+
+      const message = isFulfilled 
+        ? "Document confirmed as fulfilling your request" 
+        : "Document rejected. Request status updated to pending.";
+
+      return successResponse({
+        res,
+        data: updatedRequest,
+        msg: message,
+      });
+    } catch (error) {
+      next(error);
+    }
   })
 };
 

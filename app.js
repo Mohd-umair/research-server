@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const GlobalErrorHandler = require("./src/Errors/GlobalError");
 const { adminRouter, userRouter } = require("./src/Modules/indexRouter");
+const { websiteUserRequestRouter } = require("./src/Modules/UserRequest/websiteUserRequestRouter");
 const CustomError = require("./src/Errors/CustomError");
 const cloudinary = require("cloudinary");
 const peerServer = require("./src/Modules/PeerServer/peerServer");
@@ -40,6 +41,12 @@ app.get("/", (req, res) => {
   console.log("Root route hit");
   res.send("Hello World");
 });
+
+// Public website routes (no authentication required)
+app.use("/user-request/website", (req, res, next) => { 
+  console.log('Public user-request route hit'); 
+  next(); 
+}, websiteUserRequestRouter);
 
 app.use("/admin", (req, res, next) => { console.log('Admin route hit'); next(); }, adminRouter);
 app.use("/user", (req, res, next) => { console.log('User route hit'); next(); }, userRouter);

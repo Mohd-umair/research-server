@@ -1,0 +1,130 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    title Request Fulfilled - ResearchDecode
+    style.
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #667eea;
+      }
+      .logo {
+        font-size: 28px;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 10px;
+      }
+      .success-icon {
+        font-size: 48px;
+        color: #10b981;
+        margin-bottom: 20px;
+      }
+      .title {
+        color: #1e293b;
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      .content {
+        margin-bottom: 30px;
+      }
+      .document-info {
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        margin: 20px 0;
+      }
+      .document-info h3 {
+        color: #667eea;
+        margin-top: 0;
+      }
+      .document-info p {
+        margin: 8px 0;
+      }
+      .download-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 30px;
+        text-decoration: none;
+        border-radius: 25px;
+        font-weight: bold;
+        margin: 20px 0;
+        transition: transform 0.3s ease;
+      }
+      .download-button:hover {
+        transform: translateY(-2px);
+        text-decoration: none;
+        color: white;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        color: #64748b;
+        font-size: 14px;
+      }
+      .highlight {
+        color: #667eea;
+        font-weight: bold;
+      }
+  body
+    .container
+      .header
+        .logo ResearchDecode
+        .success-icon ✅
+        h1.title Your Document Request Has Been Fulfilled!
+      
+      .content
+        p Hello #{userName},
+        
+        p Great news! Your document request has been successfully fulfilled. The document you requested is now available for download.
+        
+        .document-info
+          h3 📄 Document Details
+          p <strong>Title:</strong> #{documentTitle}
+          p <strong>Authors:</strong> #{documentAuthors}
+          if documentDoi
+            p <strong>DOI:</strong> #{documentDoi}
+          p <strong>Request Date:</strong> #{requestDate}
+          p <strong>Fulfilled Date:</strong> #{fulfilledDate}
+        
+        p Your original request: <em>"#{requestDescription}"</em>
+        
+        p The document has been uploaded to our system and is ready for access. You can download it using the link below:
+        
+        center
+          a.download-button(href=documentUrl, target="_blank") 📥 Download Document
+        
+        p <strong>Note:</strong> This document is now part of your research library and can be accessed anytime from your dashboard.
+        
+        p Thank you for using ResearchDecode! We're committed to helping you access the research materials you need.
+        
+        p If you have any questions or need assistance, please don't hesitate to contact our support team.
+        
+      .footer
+        p Best regards,<br>
+          | <span class="highlight">The ResearchDecode Team</span>
+        p 
+          | Visit us at 
+          a(href="https://researchdecode.com", style="color: #667eea;") researchdecode.com
+        p This is an automated message. Please do not reply to this email. 
