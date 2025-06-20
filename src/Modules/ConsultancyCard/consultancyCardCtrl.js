@@ -18,6 +18,15 @@ const consultancyCardCtrl = {
           .json({ msg: errors.errors });
       } else {
         const docDto = req.body;
+        
+        // Security: Always set teacherId from the logged-in user's token
+        const loggedInUserId = req.body.decodedUser._id;
+        console.log('Creating consultancy card for logged-in user:', loggedInUserId);
+        
+        // Override any teacherId that might have been sent from frontend
+        docDto.teacherId = loggedInUserId;
+        docDto.createdBy = loggedInUserId; // Also set createdBy for consistency
+        
         const savedDoc = await consultancyCardService.create(docDto);
         return successResponse({ res, data: savedDoc, msg: "New Card Added" });
       }
@@ -72,6 +81,14 @@ const consultancyCardCtrl = {
 
   update: asyncHandler(async (req, res, next) => {
     const docDto = req.body;
+    
+    // Security: Get the logged-in user's ID
+    const loggedInUserId = req.body.decodedUser._id;
+    console.log('Updating consultancy card for logged-in user:', loggedInUserId);
+    
+    // Add user ID to the update data for security validation
+    docDto.loggedInUserId = loggedInUserId;
+    
     const updatedDoc = await consultancyCardService.update(docDto);
     return successResponse({ res, data: updatedDoc, msg: "Card Updated" });
   }),
@@ -80,6 +97,138 @@ const consultancyCardCtrl = {
     const docData = req.body;
     await consultancyCardService.delete(docData);
     return successResponse({ res, msg: "Card Deleted" });
+  }),
+
+  // Admin approval workflow methods
+  getAllForApproval: asyncHandler(async (req, res, next) => {
+    const docData = req.body;
+    
+    // Check if user has admin permissions (implement according to your auth system)
+    const userRole = req.body.decodedUser.role || req.body.decodedUser.userType;
+    if (userRole !== 'admin' && userRole !== 'moderator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Admin permissions required." 
+      });
+    }
+    
+    const response = await consultancyCardService.getAllForApproval(docData);
+    return successResponse({ 
+      res, 
+      data: response.data, 
+      count: response.totalCount,
+      msg: "Consultancy Cards for Approval Retrieved",
+      pagination: {
+        currentPage: response.currentPage,
+        totalPages: response.totalPages,
+        totalCount: response.totalCount,
+        hasNextPage: response.hasNextPage,
+        hasPrevPage: response.hasPrevPage
+      }
+    });
+  }),
+
+  approve: asyncHandler(async (req, res, next) => {
+    const { consultancyCardId, comments } = req.body;
+    const approvedBy = req.body.decodedUser._id;
+    
+    // Check if user has admin permissions
+    const userRole = req.body.decodedUser.role || req.body.decodedUser.userType;
+    if (userRole !== 'admin' && userRole !== 'moderator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Admin permissions required." 
+      });
+    }
+    
+    if (!consultancyCardId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Consultancy Card ID is required" 
+      });
+    }
+    
+    const docData = {
+      consultancyCardId,
+      approvedBy,
+      comments
+    };
+    
+    const response = await consultancyCardService.approve(docData);
+    return successResponse({ 
+      res, 
+      data: response, 
+      msg: "Consultancy Card Approved Successfully" 
+    });
+  }),
+
+  reject: asyncHandler(async (req, res, next) => {
+    const { consultancyCardId, rejectionReason } = req.body;
+    const rejectedBy = req.body.decodedUser._id;
+    
+    // Check if user has admin permissions
+    const userRole = req.body.decodedUser.role || req.body.decodedUser.userType;
+    if (userRole !== 'admin' && userRole !== 'moderator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Admin permissions required." 
+      });
+    }
+    
+    if (!consultancyCardId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Consultancy Card ID is required" 
+      });
+    }
+    
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Rejection reason is required" 
+      });
+    }
+    
+    const docData = {
+      consultancyCardId,
+      rejectedBy,
+      rejectionReason
+    };
+    
+    const response = await consultancyCardService.reject(docData);
+    return successResponse({ 
+      res, 
+      data: response, 
+      msg: "Consultancy Card Rejected" 
+    });
+  }),
+
+  // Public endpoint to get approved consultancies for home page display
+  getApprovedConsultancies: asyncHandler(async (req, res, next) => {
+    const { limit = 6, skip = 0, search = '' } = req.body;
+    
+    const docData = {
+      isApproved: true,
+      status: 'approved',
+      limit: parseInt(limit),
+      skip: parseInt(skip),
+      search: search.trim()
+    };
+    
+    const response = await consultancyCardService.getApprovedConsultancies(docData);
+    return successResponse({ 
+      res, 
+      data: response.data, 
+      count: response.totalCount,
+      msg: "Approved Consultancy Cards Retrieved",
+      pagination: {
+        currentPage: Math.floor(skip / limit) + 1,
+        totalPages: Math.ceil(response.totalCount / limit),
+        totalCount: response.totalCount,
+        hasNextPage: (skip + limit) < response.totalCount,
+        hasPrevPage: skip > 0
+      }
+    });
   }),
 };
 
