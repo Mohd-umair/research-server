@@ -3,8 +3,10 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 const GlobalErrorHandler = require("./src/Errors/GlobalError");
-const { adminRouter, userRouter } = require("./src/Modules/indexRouter");
+const { adminRouter, userRouter, apiRouter } = require("./src/Modules/indexRouter");
 const { websiteUserRequestRouter } = require("./src/Modules/UserRequest/websiteUserRequestRouter");
+const { teacherProfileRouter } = require("./src/Modules/TeacherProfile/teacherProfileRouter");
+const { paymentRouter } = require("./src/Modules/Payment/paymentRouter");
 const CustomError = require("./src/Errors/CustomError");
 const cloudinary = require("cloudinary");
 const peerServer = require("./src/Modules/PeerServer/peerServer");
@@ -47,6 +49,9 @@ app.use("/user-request/website", (req, res, next) => {
   console.log('Public user-request route hit'); 
   next(); 
 }, websiteUserRequestRouter);
+
+// Public API routes
+app.use("/api", (req, res, next) => { console.log('Public API route hit'); next(); }, apiRouter);
 
 app.use("/admin", (req, res, next) => { console.log('Admin route hit'); next(); }, adminRouter);
 app.use("/user", (req, res, next) => { console.log('User route hit'); next(); }, userRouter);

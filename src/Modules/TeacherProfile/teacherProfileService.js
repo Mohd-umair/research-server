@@ -7,6 +7,47 @@ const model = new DbService(TeacherProfile);
 
 const teacherProfileService = {
   
+  // Public method to get teacher profile by ID (for consultancy detail page)
+  getPublicProfile: serviceHandler(async (teacherId) => {
+    const query = { 
+      userId: teacherId,
+      isDeleted: false,
+      profileStatus: 'approved' // Only show approved profiles publicly
+    };
+    
+    const profile = await model.getDocument(query);
+    
+    if (!profile) {
+      throw new CustomError(404, "Teacher profile not found or not approved");
+    }
+    
+    // Return only public information
+    const publicProfile = {
+      _id: profile._id,
+      personalInfo: {
+        firstName: profile.personalInfo?.firstName,
+        lastName: profile.personalInfo?.lastName,
+        profilePicture: profile.personalInfo?.profilePicture
+      },
+      professional: {
+        currentPosition: profile.professional?.currentPosition,
+        institution: profile.professional?.institution,
+        experience: profile.professional?.experience,
+        specialization: profile.professional?.specialization,
+        skills: profile.professional?.skills,
+        professionalSummary: profile.professional?.professionalSummary,
+        hourlyRate: profile.professional?.hourlyRate,
+        availabilityStatus: profile.professional?.availabilityStatus
+      },
+      ratings: profile.ratings,
+      completedSessions: profile.completedSessions,
+      profileStatus: profile.profileStatus,
+      createdAt: profile.createdAt
+    };
+    
+    return publicProfile;
+  }),
+
   // Get current user's profile by userId from token
   getCurrentUserProfile: serviceHandler(async (userId) => {
     const query = { userId: userId, isDeleted: false };

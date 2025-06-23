@@ -3,6 +3,9 @@ const { verifyToken } = require("../../Utils/utils");
 
 const router = require('express').Router();
 
+// Public route for consultancy detail page (no auth required)
+router.get("/public/:teacherId", teacherProfileCtrl.getPublicProfile);
+
 // All routes require authentication since they deal with user profiles
 
 // Current user profile routes (Teacher/User access)

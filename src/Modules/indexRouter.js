@@ -26,11 +26,25 @@ const uploadRouter = require("./Upload/uploadRouter");
 const { eventRouter } = require("./Events/eventRouter");
 const { userRequestRouter } = require("./UserRequest/userRequestRouter");
 
+// Import admin authentication routes
+const adminAuthRoutes = require("./Admin/routes/adminRoutes");
+
 const adminRouter = require("express").Router();
 const userRouter = require("express").Router();
+const apiRouter = require("express").Router(); // New public API router
 
 const withdrawalRouter = require("./Withdrawal/withdrawalRouter");
+
+// PUBLIC API ROUTES (no authentication required for specific endpoints)
+apiRouter.use("/teacherProfile", teacherProfileRouter);
+apiRouter.use("/payment", paymentRouter);
+
+// ADMIN AUTHENTICATION ROUTES (mounted at /api/admin)
+// These are handled separately from the main admin routes
+// Login is public, other routes require admin authentication
+
 // ADMIN ROUTES
+adminRouter.use("/", adminAuthRoutes); // Mount admin auth routes at the root of admin router
 adminRouter.use("/profile", profileRouter);
 adminRouter.use("/teacher-profile", teacherProfileRouter);
 adminRouter.use("/subject", subjectRouter);
@@ -74,4 +88,4 @@ userRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 
-module.exports = { adminRouter, userRouter };
+module.exports = { adminRouter, userRouter, apiRouter };

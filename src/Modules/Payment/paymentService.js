@@ -5,6 +5,7 @@ const teacherModel = require("../Profiles/profileModel");
 const model = new DatabaseService(PaymentModel);
 const teacher = new DatabaseService(teacherModel);
 const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
 
 const paymentGatewayInstance = require("../../Utils/paymentGatewayUtil");
@@ -47,6 +48,116 @@ const paymentService = {
       return paymentSaved;
     } catch (error) {
       throw new Error(error);
+    }
+  }),
+
+  // New method for creating consultancy Razorpay order
+  createConsultancyOrder: serviceHandler(async (data) => {
+    console.log("Payment Service: Creating consultancy Razorpay order");
+    try {
+      const { amount, currency, teacherId, consultancyType } = data;
+
+      // Create Razorpay order
+      const orderOptions = {
+        amount: amount, // Amount is already in paise from frontend
+        currency: currency,
+        receipt: `consultancy_${teacherId}_${Date.now()}`,
+        notes: {
+          teacherId: teacherId,
+          consultancyType: consultancyType,
+          orderType: 'consultancy_booking'
+        }
+      };
+
+      const razorpayOrder = await razorpayInstance.orders.create(orderOptions);
+      
+      if (!razorpayOrder) {
+        throw new Error("Failed to create Razorpay order");
+      }
+
+      console.log("Payment Service: Razorpay order created successfully", razorpayOrder.id);
+
+      return {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        receipt: razorpayOrder.receipt,
+        status: razorpayOrder.status
+      };
+    } catch (error) {
+      console.error("Payment Service: Error creating Razorpay order", error);
+      throw new Error(`Failed to create payment order: ${error.message}`);
+    }
+  }),
+
+  // New method for verifying consultancy payment
+  verifyConsultancyPayment: serviceHandler(async (data) => {
+    console.log("Payment Service: Verifying consultancy payment");
+    try {
+      const { 
+        razorpay_order_id, 
+        razorpay_payment_id, 
+        razorpay_signature, 
+        teacherId, 
+        amount 
+      } = data;
+
+      // Verify payment signature
+      const generatedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+      if (generatedSignature !== razorpay_signature) {
+        throw new Error("Payment signature verification failed");
+      }
+
+      // Get payment details from Razorpay
+      const paymentDetails = await razorpayInstance.payments.fetch(razorpay_payment_id);
+      
+      if (paymentDetails.status !== 'captured') {
+        throw new Error("Payment not captured successfully");
+      }
+
+      // Save payment record
+      const paymentRecord = await model.save({
+        studentId: null, // Will be set when user authentication is implemented
+        teacherId: teacherId,
+        amount: amount,
+        currency: paymentDetails.currency,
+        transactionType: 'consultancy_booking',
+        referenceModel: 'TeacherProfile',
+        referenceId: teacherId,
+        razorpayOrderId: razorpay_order_id,
+        transactionId: razorpay_payment_id,
+        paymentStatus: 'completed',
+        paymentMethod: paymentDetails.method,
+        paymentDetails: {
+          razorpay_order_id,
+          razorpay_payment_id,
+          razorpay_signature,
+          captured_at: paymentDetails.created_at,
+          fee: paymentDetails.fee,
+          tax: paymentDetails.tax
+        },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      console.log("Payment Service: Payment verified and saved successfully");
+
+      return {
+        paymentId: paymentRecord._id,
+        transactionId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        amount: amount,
+        status: 'verified',
+        teacherId: teacherId,
+        bookingCreated: true
+      };
+    } catch (error) {
+      console.error("Payment Service: Error verifying payment", error);
+      throw new Error(`Payment verification failed: ${error.message}`);
     }
   }),
 

@@ -5,6 +5,23 @@ const TeacherProfileService = require("./teacherProfileService");
 
 const teacherProfileCtrl = {
 
+  // Public method to get teacher profile by ID (for consultancy detail page)
+  getPublicProfile: asyncHandler(async (req, res, next) => {
+    const { teacherId } = req.params;
+    
+    if (!teacherId) {
+      throw new CustomError(400, "Teacher ID is required");
+    }
+    
+    const profile = await TeacherProfileService.getPublicProfile(teacherId);
+    
+    return successResponse({
+      res,
+      data: profile,
+      msg: "Teacher profile retrieved successfully",
+    });
+  }),
+
   // Get current user's profile
   getCurrentProfile: asyncHandler(async (req, res, next) => {
     const userId = req.decodedUser._id;
