@@ -4,6 +4,8 @@ const router = express.Router();
 // Import controllers
 const authController = require('../controllers/authController');
 const adminController = require('../controllers/adminController');
+const studentController = require('../controllers/studentController');
+const teacherController = require('../controllers/teacherController');
 
 // Import middleware
 const { verifyAdminToken, optionalAdminAuth } = require('../middleware/verifyAdminToken');
@@ -158,6 +160,163 @@ router.delete('/users/:id',
   canModifyAdmin,
   logAdminAction,
   adminController.deleteAdmin
+);
+
+// =============================================================================
+// STUDENT MANAGEMENT ROUTES
+// =============================================================================
+
+/**
+ * @route   GET /api/admin/students
+ * @desc    Get all active students with pagination and filtering
+ * @access  Private (Any Admin)
+ */
+router.get('/students',
+  verifyAdminToken,
+  requireAnyAdmin,
+  studentController.getAllStudents
+);
+
+/**
+ * @route   GET /api/admin/students/stats
+ * @desc    Get student statistics
+ * @access  Private (Any Admin)
+ */
+router.get('/students/stats',
+  verifyAdminToken,
+  requireAnyAdmin,
+  studentController.getStudentStats
+);
+
+/**
+ * @route   GET /api/admin/students/:id
+ * @desc    Get specific student by ID
+ * @access  Private (Any Admin)
+ */
+router.get('/students/:id',
+  verifyAdminToken,
+  requireAnyAdmin,
+  studentController.getStudentById
+);
+
+/**
+ * @route   PATCH /api/admin/students/:id
+ * @desc    Update student information
+ * @access  Private (Moderator and above)
+ */
+router.patch('/students/:id',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  studentController.updateStudent
+);
+
+/**
+ * @route   DELETE /api/admin/students/:id
+ * @desc    Soft delete student (set isDelete: true)
+ * @access  Private (Moderator and above)
+ */
+router.delete('/students/:id',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  studentController.deleteStudent
+);
+
+/**
+ * @route   POST /api/admin/students/:id/restore
+ * @desc    Restore soft deleted student
+ * @access  Private (Moderator and above)
+ */
+router.post('/students/:id/restore',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  studentController.restoreStudent
+);
+
+/**
+ * @route   POST /api/admin/students/bulk
+ * @desc    Bulk operations on students
+ * @access  Private (SuperAdmin only)
+ */
+router.post('/students/bulk',
+  verifyAdminToken,
+  requireSuperAdmin,
+  logAdminAction,
+  studentController.bulkStudentOperations
+);
+
+// =============================================================================
+// TEACHER MANAGEMENT ROUTES
+// =============================================================================
+
+/**
+ * @route   GET /api/admin/teachers
+ * @desc    Get all teachers with pagination, filtering, and profile data
+ * @access  Private (Any Admin)
+ */
+router.get('/teachers',
+  verifyAdminToken,
+  requireAnyAdmin,
+  teacherController.getAllTeachers
+);
+
+/**
+ * @route   GET /api/admin/teachers/stats
+ * @desc    Get teacher statistics
+ * @access  Private (Any Admin)
+ */
+router.get('/teachers/stats',
+  verifyAdminToken,
+  requireAnyAdmin,
+  teacherController.getTeacherStats
+);
+
+/**
+ * @route   POST /api/admin/teachers/bulk
+ * @desc    Bulk operations on teachers
+ * @access  Private (SuperAdmin only)
+ */
+router.post('/teachers/bulk',
+  verifyAdminToken,
+  requireSuperAdmin,
+  logAdminAction,
+  teacherController.bulkTeacherOperations
+);
+
+/**
+ * @route   GET /api/admin/teachers/:id
+ * @desc    Get specific teacher by ID with complete profile data
+ * @access  Private (Any Admin)
+ */
+router.get('/teachers/:id',
+  verifyAdminToken,
+  requireAnyAdmin,
+  teacherController.getTeacherById
+);
+
+/**
+ * @route   PATCH /api/admin/teachers/:id
+ * @desc    Update teacher status (approve/reject, activate/deactivate)
+ * @access  Private (Moderator and above)
+ */
+router.patch('/teachers/:id',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  teacherController.updateTeacher
+);
+
+/**
+ * @route   DELETE /api/admin/teachers/:id
+ * @desc    Soft delete teacher
+ * @access  Private (Moderator and above)
+ */
+router.delete('/teachers/:id',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  teacherController.deleteTeacher
 );
 
 // =============================================================================
