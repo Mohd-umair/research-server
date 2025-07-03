@@ -75,12 +75,24 @@ const adminSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin',
     default: null
+  },
+  resetPasswordToken: {
+    type: String,
+    default: null,
+    select: false // Don't include in queries by default
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null,
+    select: false // Don't include in queries by default
   }
 }, {
   timestamps: true,
   toJSON: {
     transform: function(doc, ret) {
       delete ret.password;
+      delete ret.resetPasswordToken;
+      delete ret.resetPasswordExpires;
       delete ret.__v;
       return ret;
     }

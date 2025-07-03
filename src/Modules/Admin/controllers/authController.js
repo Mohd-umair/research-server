@@ -334,6 +334,185 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+/**
+ * Forgot password - Send reset token
+ * POST /api/admin/auth/forgot-password
+ */
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Validation
+    if (!email) {
+      return next(new CustomError('Email is required.', 400));
+    }
+
+    // Find admin by email
+    const admin = await Admin.findOne({ 
+      email: email.toLowerCase().trim(),
+      isActive: true 
+    });
+
+    // Always return success for security reasons (don't reveal if email exists)
+    if (!admin) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.'
+      });
+    }
+
+    // Generate reset token (simplified version - in production, use crypto.randomBytes)
+    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Save reset token to admin (you may want to add these fields to your Admin model)
+    admin.resetPasswordToken = resetToken;
+    admin.resetPasswordExpires = resetTokenExpires;
+    await admin.save();
+
+    // In a real application, you would send an email here
+    // For now, we'll just log it (remove in production)
+    console.log(`[PASSWORD RESET] ${new Date().toISOString()} - Reset token for ${admin.email}: ${resetToken}`);
+
+    // Log the request
+    console.log(`[ADMIN FORGOT PASSWORD] ${new Date().toISOString()} - Email: ${email} - IP: ${req.ip}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      // Remove this in production - only for development
+      ...(process.env.NODE_ENV === 'development' && { resetToken })
+    });
+
+  } catch (error) {
+    console.error('Admin forgot password error:', error);
+    next(new CustomError('Failed to process password reset request.', 500));
+  }
+};
+
+/**
+ * Reset password with token
+ * POST /api/admin/auth/reset-password
+ */
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    // Validation
+    if (!token || !newPassword || !confirmPassword) {
+      return next(new CustomError('Reset token, new password, and confirmation are required.', 400));
+    }
+
+    if (newPassword !== confirmPassword) {
+      return next(new CustomError('New password and confirmation do not match.', 400));
+    }
+
+    if (newPassword.length < 8) {
+      return next(new CustomError('New password must be at least 8 characters long.', 400));
+    }
+
+    // Find admin with valid reset token
+    const admin = await Admin.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+      isActive: true
+    }).select('+password');
+
+    if (!admin) {
+      return next(new CustomError('Invalid or expired reset token.', 400));
+    }
+
+    // Update password and clear reset token
+    admin.password = newPassword;
+    admin.resetPasswordToken = undefined;
+    admin.resetPasswordExpires = undefined;
+    admin.updatedBy = admin._id;
+    await admin.save();
+
+    // Log password reset
+    console.log(`[ADMIN PASSWORD RESET] ${new Date().toISOString()} - Admin: ${admin.email} (${admin.role}) - IP: ${req.ip}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. Please login with your new password.'
+    });
+
+  } catch (error) {
+    console.error('Admin password reset error:', error);
+    next(new CustomError('Password reset failed.', 500));
+  }
+};
+
+/**
+ * Update current admin profile
+ * PATCH /api/admin/auth/profile
+ */
+const updateProfile = async (req, res, next) => {
+  try {
+    const { fullName, email } = req.body;
+    const admin = req.admin;
+
+    // Validation
+    if (!fullName && !email) {
+      return next(new CustomError('At least one field (fullName or email) is required for update.', 400));
+    }
+
+    const updateData = { updatedBy: admin._id };
+
+    if (fullName) {
+      if (typeof fullName !== 'string' || fullName.trim().length < 2) {
+        return next(new CustomError('Full name must be at least 2 characters long.', 400));
+      }
+      updateData.fullName = fullName.trim();
+    }
+
+    if (email) {
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return next(new CustomError('Please provide a valid email address.', 400));
+      }
+      
+      // Check if email is already taken by another admin
+      const existingAdmin = await Admin.findOne({ 
+        email: email.toLowerCase().trim(),
+        _id: { $ne: admin._id }
+      });
+      
+      if (existingAdmin) {
+        return next(new CustomError('Email is already in use by another admin.', 409));
+      }
+      
+      updateData.email = email.toLowerCase().trim();
+    }
+
+    // Update admin
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      admin._id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('createdBy', 'fullName email role')
+     .populate('updatedBy', 'fullName email role');
+
+    if (!updatedAdmin) {
+      return next(new CustomError('Admin not found.', 404));
+    }
+
+    // Log profile update
+    console.log(`[ADMIN PROFILE UPDATE] ${new Date().toISOString()} - Admin: ${admin.email} (${admin.role}) - IP: ${req.ip}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        admin: updatedAdmin
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin profile update error:', error);
+    next(new CustomError('Profile update failed.', 500));
+  }
+};
+
 module.exports = {
   login,
   getProfile,
@@ -341,6 +520,9 @@ module.exports = {
   refreshToken,
   verifyToken,
   changePassword,
+  forgotPassword,
+  resetPassword,
+  updateProfile,
   generateToken,
   setTokenCookie
 }; 

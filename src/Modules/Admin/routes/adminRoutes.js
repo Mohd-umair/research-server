@@ -6,6 +6,7 @@ const authController = require('../controllers/authController');
 const adminController = require('../controllers/adminController');
 const studentController = require('../controllers/studentController');
 const teacherController = require('../controllers/teacherController');
+const userRequestController = require('../controllers/userRequestController');
 
 // Import middleware
 const { verifyAdminToken, optionalAdminAuth } = require('../middleware/verifyAdminToken');
@@ -34,44 +35,58 @@ const { validateAdminLogin, validateAdminCreation, validateAdminUpdate } = requi
  */
 router.post('/auth/login', validateAdminLogin, authController.login);
 
+/**
+ * @route   POST /api/admin/auth/logout
+ * @desc    Admin logout
+ * @access  Public
+ */
+router.post('/auth/logout', authController.logout);
+
+/**
+ * @route   POST /api/admin/auth/refresh
+ * @desc    Refresh admin token
+ * @access  Public
+ */
+router.post('/auth/refresh', authController.refreshToken);
+
+/**
+ * @route   POST /api/admin/auth/forgot-password
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post('/auth/forgot-password', authController.forgotPassword);
+
+/**
+ * @route   POST /api/admin/auth/reset-password
+ * @desc    Reset password with token
+ * @access  Public
+ */
+router.post('/auth/reset-password', authController.resetPassword);
+
 // =============================================================================
 // PROTECTED ROUTES (Authentication required)
 // =============================================================================
 
 /**
- * @route   GET /api/admin/auth/me
- * @desc    Get current admin profile
- * @access  Private (Any Admin)
- */
-router.get('/auth/me', verifyAdminToken, authController.getProfile);
-
-/**
- * @route   POST /api/admin/auth/logout
- * @desc    Admin logout
- * @access  Private (Any Admin)
- */
-router.post('/auth/logout', verifyAdminToken, logAdminAction, authController.logout);
-
-/**
- * @route   POST /api/admin/auth/refresh
- * @desc    Refresh admin token
- * @access  Private (Any Admin)
- */
-router.post('/auth/refresh', verifyAdminToken, authController.refreshToken);
-
-/**
  * @route   GET /api/admin/auth/verify
  * @desc    Verify admin token
- * @access  Private (Any Admin)
+ * @access  Private
  */
 router.get('/auth/verify', verifyAdminToken, authController.verifyToken);
 
 /**
- * @route   POST /api/admin/auth/change-password
- * @desc    Change admin password
- * @access  Private (Any Admin)
+ * @route   GET /api/admin/auth/profile
+ * @desc    Get current admin profile
+ * @access  Private
  */
-router.post('/auth/change-password', verifyAdminToken, logAdminAction, authController.changePassword);
+router.get('/auth/profile', verifyAdminToken, authController.getProfile);
+
+/**
+ * @route   PATCH /api/admin/auth/profile
+ * @desc    Update current admin profile
+ * @access  Private
+ */
+router.patch('/auth/profile', verifyAdminToken, authController.updateProfile);
 
 // =============================================================================
 // ADMIN MANAGEMENT ROUTES
@@ -104,11 +119,11 @@ router.get('/users',
 /**
  * @route   GET /api/admin/users/stats
  * @desc    Get admin statistics
- * @access  Private (SuperAdmin and Moderator)
+ * @access  Private (SuperAdmin and Moderator only)
  */
 router.get('/users/stats',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
+  requireModerator,
   adminController.getAdminStats
 );
 
@@ -202,34 +217,35 @@ router.get('/students/:id',
 /**
  * @route   PATCH /api/admin/students/:id
  * @desc    Update student information
- * @access  Private (Moderator and above)
+ * @access  Private (SuperAdmin and Moderator only)
  */
 router.patch('/students/:id',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
+  requireModerator,
+  logAdminAction,
   studentController.updateStudent
 );
 
 /**
  * @route   DELETE /api/admin/students/:id
- * @desc    Soft delete student (set isDelete: true)
- * @access  Private (Moderator and above)
+ * @desc    Delete (deactivate) student
+ * @access  Private (SuperAdmin only)
  */
 router.delete('/students/:id',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
+  requireSuperAdmin,
   logAdminAction,
   studentController.deleteStudent
 );
 
 /**
- * @route   POST /api/admin/students/:id/restore
- * @desc    Restore soft deleted student
- * @access  Private (Moderator and above)
+ * @route   PATCH /api/admin/students/:id/restore
+ * @desc    Restore deleted student
+ * @access  Private (SuperAdmin only)
  */
-router.post('/students/:id/restore',
+router.patch('/students/:id/restore',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
+  requireSuperAdmin,
   logAdminAction,
   studentController.restoreStudent
 );
@@ -252,7 +268,7 @@ router.post('/students/bulk',
 
 /**
  * @route   GET /api/admin/teachers
- * @desc    Get all teachers with pagination, filtering, and profile data
+ * @desc    Get all teachers with pagination and filtering
  * @access  Private (Any Admin)
  */
 router.get('/teachers',
@@ -273,6 +289,89 @@ router.get('/teachers/stats',
 );
 
 /**
+ * @route   GET /api/admin/teachers/:id
+ * @desc    Get specific teacher by ID
+ * @access  Private (Any Admin)
+ */
+router.get('/teachers/:id',
+  verifyAdminToken,
+  requireAnyAdmin,
+  teacherController.getTeacherById
+);
+
+/**
+ * @route   PATCH /api/admin/teachers/:id
+ * @desc    Update teacher information
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.patch('/teachers/:id',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  teacherController.updateTeacher
+);
+
+/**
+ * @route   DELETE /api/admin/teachers/:id
+ * @desc    Delete (soft delete) teacher
+ * @access  Private (SuperAdmin only)
+ */
+router.delete('/teachers/:id',
+  verifyAdminToken,
+  requireSuperAdmin,
+  logAdminAction,
+  teacherController.deleteTeacher
+);
+
+/**
+ * @route   PUT /api/admin/teachers/:id/approve
+ * @desc    Approve teacher
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.put('/teachers/:id/approve',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  teacherController.approveTeacher
+);
+
+/**
+ * @route   PUT /api/admin/teachers/:id/reject
+ * @desc    Reject teacher
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.put('/teachers/:id/reject',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  teacherController.rejectTeacher
+);
+
+/**
+ * @route   PUT /api/admin/teachers/:id/activate
+ * @desc    Activate teacher
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.put('/teachers/:id/activate',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  teacherController.activateTeacher
+);
+
+/**
+ * @route   PUT /api/admin/teachers/:id/deactivate
+ * @desc    Deactivate teacher
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.put('/teachers/:id/deactivate',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  teacherController.deactivateTeacher
+);
+
+/**
  * @route   POST /api/admin/teachers/bulk
  * @desc    Bulk operations on teachers
  * @access  Private (SuperAdmin only)
@@ -284,39 +383,100 @@ router.post('/teachers/bulk',
   teacherController.bulkTeacherOperations
 );
 
+// =============================================================================
+// USER REQUEST MANAGEMENT ROUTES
+// =============================================================================
+
 /**
- * @route   GET /api/admin/teachers/:id
- * @desc    Get specific teacher by ID with complete profile data
+ * @route   GET /api/admin/user-requests
+ * @desc    Get all user requests with pagination and filtering
  * @access  Private (Any Admin)
  */
-router.get('/teachers/:id',
+router.get('/user-requests',
   verifyAdminToken,
   requireAnyAdmin,
-  teacherController.getTeacherById
+  userRequestController.getAllUserRequests
 );
 
 /**
- * @route   PATCH /api/admin/teachers/:id
- * @desc    Update teacher status (approve/reject, activate/deactivate)
- * @access  Private (Moderator and above)
+ * @route   GET /api/admin/user-requests/stats
+ * @desc    Get user request statistics
+ * @access  Private (Any Admin)
  */
-router.patch('/teachers/:id',
+router.get('/user-requests/stats',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
-  logAdminAction,
-  teacherController.updateTeacher
+  requireAnyAdmin,
+  userRequestController.getUserRequestStats
 );
 
 /**
- * @route   DELETE /api/admin/teachers/:id
- * @desc    Soft delete teacher
- * @access  Private (Moderator and above)
+ * @route   POST /api/admin/user-requests/bulk
+ * @desc    Bulk operations on user requests
+ * @access  Private (SuperAdmin and Moderator only)
  */
-router.delete('/teachers/:id',
+router.post('/user-requests/bulk',
   verifyAdminToken,
-  requireRole(['SuperAdmin', 'Moderator']),
+  requireModerator,
   logAdminAction,
-  teacherController.deleteTeacher
+  userRequestController.bulkUserRequestOperations
+);
+
+/**
+ * @route   GET /api/admin/user-requests/:id
+ * @desc    Get specific user request by ID
+ * @access  Private (Any Admin)
+ */
+router.get('/user-requests/:id',
+  verifyAdminToken,
+  requireAnyAdmin,
+  userRequestController.getUserRequestById
+);
+
+/**
+ * @route   PATCH /api/admin/user-requests/:id
+ * @desc    Update user request details
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.patch('/user-requests/:id',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  userRequestController.updateUserRequest
+);
+
+/**
+ * @route   PATCH /api/admin/user-requests/:id/status
+ * @desc    Update user request status
+ * @access  Private (Any Admin)
+ */
+router.patch('/user-requests/:id/status',
+  verifyAdminToken,
+  requireAnyAdmin,
+  userRequestController.updateUserRequestStatus
+);
+
+/**
+ * @route   PATCH /api/admin/user-requests/:id/assign
+ * @desc    Assign user request to admin
+ * @access  Private (SuperAdmin and Moderator only)
+ */
+router.patch('/user-requests/:id/assign',
+  verifyAdminToken,
+  requireModerator,
+  logAdminAction,
+  userRequestController.assignUserRequest
+);
+
+/**
+ * @route   DELETE /api/admin/user-requests/:id
+ * @desc    Delete user request
+ * @access  Private (SuperAdmin only)
+ */
+router.delete('/user-requests/:id',
+  verifyAdminToken,
+  requireSuperAdmin,
+  logAdminAction,
+  userRequestController.deleteUserRequest
 );
 
 // =============================================================================

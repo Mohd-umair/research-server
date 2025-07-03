@@ -614,11 +614,272 @@ function getTeacherStatus(teacher, profile) {
   return 'unknown';
 }
 
+/**
+ * Approve a teacher
+ * PUT /api/admin/teachers/:id/approve
+ */
+const approveTeacher = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { approvalNote } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid teacher ID format.', 400));
+    }
+
+    // Find the teacher
+    const teacher = await Teacher.findOne({ _id: id, isDelete: false });
+    if (!teacher) {
+      return next(new CustomError('Teacher not found.', 404));
+    }
+
+    // Update teacher approval status
+    teacher.isApproved = true;
+    await teacher.save();
+
+    // Update teacher profile if exists
+    const profile = await TeacherProfile.findOne({ userId: id });
+    if (profile) {
+      profile.profileStatus = 'approved';
+      profile.approvedAt = new Date();
+      profile.rejectionReasons = [];
+      if (approvalNote) {
+        profile.adminNotes = profile.adminNotes || [];
+        profile.adminNotes.push({
+          note: approvalNote,
+          addedBy: req.admin._id,
+          addedAt: new Date(),
+          type: 'approval'
+        });
+      }
+      await profile.save();
+    }
+
+    // Log the action
+    console.log(`[TEACHER APPROVED] ${new Date().toISOString()} - Teacher: ${teacher.email} - By: ${req.admin.email} (${req.admin.role})`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Teacher approved successfully',
+      data: {
+        teacher: {
+          _id: teacher._id,
+          name: `${teacher.firstName} ${teacher.lastName}`,
+          email: teacher.email,
+          isApproved: teacher.isApproved,
+          isActive: teacher.isActive
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Approve teacher error:', error);
+    next(new CustomError('Failed to approve teacher.', 500));
+  }
+};
+
+/**
+ * Reject a teacher
+ * PUT /api/admin/teachers/:id/reject
+ */
+const rejectTeacher = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rejectionReasons, rejectionNote } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid teacher ID format.', 400));
+    }
+
+    if (!rejectionReasons || !Array.isArray(rejectionReasons) || rejectionReasons.length === 0) {
+      return next(new CustomError('At least one rejection reason is required.', 400));
+    }
+
+    // Find the teacher
+    const teacher = await Teacher.findOne({ _id: id, isDelete: false });
+    if (!teacher) {
+      return next(new CustomError('Teacher not found.', 404));
+    }
+
+    // Update teacher approval status
+    teacher.isApproved = false;
+    await teacher.save();
+
+    // Update teacher profile if exists
+    const profile = await TeacherProfile.findOne({ userId: id });
+    if (profile) {
+      profile.profileStatus = 'rejected';
+      profile.approvedAt = null;
+      profile.rejectionReasons = rejectionReasons;
+      if (rejectionNote) {
+        profile.adminNotes = profile.adminNotes || [];
+        profile.adminNotes.push({
+          note: rejectionNote,
+          addedBy: req.admin._id,
+          addedAt: new Date(),
+          type: 'rejection'
+        });
+      }
+      await profile.save();
+    }
+
+    // Log the action
+    console.log(`[TEACHER REJECTED] ${new Date().toISOString()} - Teacher: ${teacher.email} - Reasons: ${rejectionReasons.join(', ')} - By: ${req.admin.email} (${req.admin.role})`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Teacher rejected successfully',
+      data: {
+        teacher: {
+          _id: teacher._id,
+          name: `${teacher.firstName} ${teacher.lastName}`,
+          email: teacher.email,
+          isApproved: teacher.isApproved,
+          isActive: teacher.isActive
+        },
+        rejectionReasons
+      }
+    });
+
+  } catch (error) {
+    console.error('Reject teacher error:', error);
+    next(new CustomError('Failed to reject teacher.', 500));
+  }
+};
+
+/**
+ * Activate a teacher
+ * PUT /api/admin/teachers/:id/activate
+ */
+const activateTeacher = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { activationNote } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid teacher ID format.', 400));
+    }
+
+    // Find the teacher
+    const teacher = await Teacher.findOne({ _id: id, isDelete: false });
+    if (!teacher) {
+      return next(new CustomError('Teacher not found.', 404));
+    }
+
+    // Update teacher active status
+    teacher.isActive = true;
+    await teacher.save();
+
+    // Update teacher profile if exists
+    const profile = await TeacherProfile.findOne({ userId: id });
+    if (profile) {
+      profile.isActive = true;
+      if (activationNote) {
+        profile.adminNotes = profile.adminNotes || [];
+        profile.adminNotes.push({
+          note: activationNote,
+          addedBy: req.admin._id,
+          addedAt: new Date(),
+          type: 'activation'
+        });
+      }
+      await profile.save();
+    }
+
+    // Log the action
+    console.log(`[TEACHER ACTIVATED] ${new Date().toISOString()} - Teacher: ${teacher.email} - By: ${req.admin.email} (${req.admin.role})`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Teacher activated successfully',
+      data: {
+        teacher: {
+          _id: teacher._id,
+          name: `${teacher.firstName} ${teacher.lastName}`,
+          email: teacher.email,
+          isApproved: teacher.isApproved,
+          isActive: teacher.isActive
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Activate teacher error:', error);
+    next(new CustomError('Failed to activate teacher.', 500));
+  }
+};
+
+/**
+ * Deactivate a teacher
+ * PUT /api/admin/teachers/:id/deactivate
+ */
+const deactivateTeacher = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { deactivationNote } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid teacher ID format.', 400));
+    }
+
+    // Find the teacher
+    const teacher = await Teacher.findOne({ _id: id, isDelete: false });
+    if (!teacher) {
+      return next(new CustomError('Teacher not found.', 404));
+    }
+
+    // Update teacher active status
+    teacher.isActive = false;
+    await teacher.save();
+
+    // Update teacher profile if exists
+    const profile = await TeacherProfile.findOne({ userId: id });
+    if (profile) {
+      profile.isActive = false;
+      if (deactivationNote) {
+        profile.adminNotes = profile.adminNotes || [];
+        profile.adminNotes.push({
+          note: deactivationNote,
+          addedBy: req.admin._id,
+          addedAt: new Date(),
+          type: 'deactivation'
+        });
+      }
+      await profile.save();
+    }
+
+    // Log the action
+    console.log(`[TEACHER DEACTIVATED] ${new Date().toISOString()} - Teacher: ${teacher.email} - By: ${req.admin.email} (${req.admin.role})`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Teacher deactivated successfully',
+      data: {
+        teacher: {
+          _id: teacher._id,
+          name: `${teacher.firstName} ${teacher.lastName}`,
+          email: teacher.email,
+          isApproved: teacher.isApproved,
+          isActive: teacher.isActive
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Deactivate teacher error:', error);
+    next(new CustomError('Failed to deactivate teacher.', 500));
+  }
+};
+
 module.exports = {
   getAllTeachers,
   getTeacherById,
   updateTeacher,
   deleteTeacher,
   getTeacherStats,
-  bulkTeacherOperations
+  bulkTeacherOperations,
+  approveTeacher,
+  rejectTeacher,
+  activateTeacher,
+  deactivateTeacher
 }; 
