@@ -1,6 +1,7 @@
 const { verifyToken } = require("../Utils/utils");
 const { assignmentRouter } = require("./Assignments/assignmentRouter");
 const { chatRouter } = require("./Chats/ChatRouter");
+const conversationRouter = require("./Chats/ConversationRoutes");
 const consultancyRouter = require("./Consultancy/consultancyRouter");
 const consultancyCardRouter = require("./ConsultancyCard/consultancyCardRouter");
 const courseEnrollmentRouter = require("./CourseEnrollment/courseEnrollmentRouter");
@@ -68,12 +69,14 @@ adminRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 
+
 // USER ROUTES
 userRouter.use("/teacher-profile", teacherProfileRouter);
 userRouter.use("/paperRequest", paperRequestRouter);
 userRouter.use("/student", studentRouter);
 userRouter.use("/course", courseRouter);
 userRouter.use("/chats", chatRouter);
+userRouter.use("/conversations", conversationRouter);
 userRouter.use("/video", videoRouter);
 userRouter.use("/teacher", teacherRouter);
 userRouter.use("/consultancyCard", consultancyCardRouter);
@@ -86,6 +89,8 @@ userRouter.use("/webinarEnrollment",verifyToken, webinarEnrollmentRouter);
 userRouter.use("/payment",paymentRouter)
 userRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
+apiRouter.use("/conversations", conversationRouter);
+
 
 
 module.exports = { adminRouter, userRouter, apiRouter };
