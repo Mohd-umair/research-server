@@ -230,6 +230,35 @@ const consultancyCardCtrl = {
       }
     });
   }),
+
+  // Admin endpoint to get all consultancies for management
+  getAllConsultanciesForAdmin: asyncHandler(async (req, res, next) => {
+    const docData = req.body;
+    
+    // Check if user has admin permissions - using admin token structure
+    const adminRole = req.admin.role;
+    if (adminRole !== 'SuperAdmin' && adminRole !== 'Moderator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Admin permissions required." 
+      });
+    }
+    
+    const response = await consultancyCardService.getAllConsultanciesForAdmin(docData);
+    return successResponse({ 
+      res, 
+      data: response.data, 
+      count: response.totalCount,
+      msg: "All Consultancy Cards Retrieved",
+      pagination: {
+        currentPage: response.currentPage,
+        totalPages: response.totalPages,
+        totalCount: response.totalCount,
+        hasNextPage: response.hasNextPage,
+        hasPrevPage: response.hasPrevPage
+      }
+    });
+  }),
 };
 
 module.exports = consultancyCardCtrl;

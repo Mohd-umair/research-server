@@ -565,6 +565,122 @@ const bulkAdminOperations = async (req, res, next) => {
   }
 };
 
+/**
+ * Get admin activity logs
+ * GET /api/admin/activity
+ */
+const getAdminActivity = async (req, res, next) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      adminId,
+      action,
+      startDate,
+      endDate,
+      sortBy = 'timestamp',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+    
+    if (adminId) {
+      filter.adminId = adminId;
+    }
+    
+    if (action) {
+      filter.action = { $regex: action, $options: 'i' };
+    }
+    
+    if (startDate || endDate) {
+      filter.timestamp = {};
+      if (startDate) filter.timestamp.$gte = new Date(startDate);
+      if (endDate) filter.timestamp.$lte = new Date(endDate);
+    }
+
+    // Pagination
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Sorting
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+    // Mock activity logs (replace with actual log collection)
+    const mockLogs = [
+      {
+        _id: '1',
+        adminId: req.admin._id,
+        adminEmail: req.admin.email,
+        action: 'login',
+        details: 'Admin logged in',
+        timestamp: new Date(),
+        ipAddress: req.ip
+      }
+    ];
+
+    res.status(200).json({
+      success: true,
+      message: 'Admin activity logs retrieved successfully',
+      data: {
+        logs: mockLogs,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: 1,
+          totalCount: mockLogs.length,
+          limit: limitNum,
+          hasNextPage: false,
+          hasPrevPage: false
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get admin activity error:', error);
+    next(new CustomError('Failed to retrieve admin activity logs.', 500));
+  }
+};
+
+/**
+ * Log admin activity
+ * POST /api/admin/activity/log
+ */
+const logAdminActivity = async (req, res, next) => {
+  try {
+    const { action, details } = req.body;
+    const admin = req.admin;
+
+    if (!action) {
+      return next(new CustomError('Action is required.', 400));
+    }
+
+    // Log the activity (in a real implementation, this would save to a log collection)
+    const logEntry = {
+      adminId: admin._id,
+      adminEmail: admin.email,
+      action,
+      details: details || '',
+      timestamp: new Date(),
+      ipAddress: req.ip
+    };
+
+    console.log(`[ADMIN ACTIVITY] ${JSON.stringify(logEntry)}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Activity logged successfully',
+      data: {
+        logEntry
+      }
+    });
+
+  } catch (error) {
+    console.error('Log admin activity error:', error);
+    next(new CustomError('Failed to log admin activity.', 500));
+  }
+};
+
 module.exports = {
   createAdmin,
   getAllAdmins,
@@ -572,5 +688,7 @@ module.exports = {
   updateAdmin,
   deleteAdmin,
   getAdminStats,
-  bulkAdminOperations
+  bulkAdminOperations,
+  getAdminActivity,
+  logAdminActivity
 }; 

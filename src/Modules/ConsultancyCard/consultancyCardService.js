@@ -387,6 +387,62 @@ const consultancyCardService = {
       throw new Error(`Failed to fetch approved consultancies: ${error.message}`);
     }
   }),
+
+  // Admin method to get all consultancies for management
+  getAllConsultanciesForAdmin: serviceHandler(async (data) => {
+    const { search = "", skip = 0, limit = 10, status = '', sortBy = 'createdAt', sortOrder = 'desc' } = data;
+
+    const query = { 
+      isDelete: false
+    };
+    
+    // Filter by status if provided
+    if (status && status.trim()) {
+      query.status = status;
+    }
+    
+    console.log('Getting all consultancy cards for admin with query:', query);
+    
+    // Apply search filter
+    if (search && search.trim()) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Set up sorting
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Set up pagination options
+    const options = {
+      populate: [
+        { path: "teacherId", select: "firstName lastName email profileImage qualification experience" },
+        { path: "approvedBy", select: "firstName lastName email" }
+      ],
+      skip: parseInt(skip),
+      limit: parseInt(limit),
+      sort: sortOptions
+    };
+
+    // Get total count for pagination
+    const totalCount = await ConsultancyCard.countDocuments(query);
+    
+    // Get paginated results
+    const results = await model.getAllDocuments(query, options);
+
+    console.log(`Found ${results.length} consultancy cards for admin management`);
+
+    return {
+      data: results,
+      totalCount: totalCount,
+      currentPage: Math.floor(skip / limit) + 1,
+      totalPages: Math.ceil(totalCount / limit),
+      hasNextPage: skip + limit < totalCount,
+      hasPrevPage: skip > 0
+    };
+  }),
 };
 
 module.exports = consultancyCardService;

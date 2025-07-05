@@ -7,6 +7,7 @@ const adminController = require('../controllers/adminController');
 const studentController = require('../controllers/studentController');
 const teacherController = require('../controllers/teacherController');
 const userRequestController = require('../controllers/userRequestController');
+const consultancyController = require('../controllers/consultancyController');
 
 // Import middleware
 const { verifyAdminToken, optionalAdminAuth } = require('../middleware/verifyAdminToken');
@@ -480,6 +481,79 @@ router.delete('/user-requests/:id',
 );
 
 // =============================================================================
+// CONSULTANCY MANAGEMENT ROUTES
+// =============================================================================
+
+/**
+ * @route   GET /api/admin/consultancies
+ * @desc    Get all consultancies with pagination and filtering
+ * @access  Private (Any Admin)
+ */
+router.get('/consultancies',
+  verifyAdminToken,
+  requireAnyAdmin,
+  consultancyController.getAllConsultancies
+);
+
+/**
+ * @route   GET /api/admin/consultancies/stats
+ * @desc    Get consultancy statistics
+ * @access  Private (Any Admin)
+ */
+router.get('/consultancies/stats',
+  verifyAdminToken,
+  requireAnyAdmin,
+  consultancyController.getConsultancyStats
+);
+
+/**
+ * @route   GET /api/admin/consultancies/:id
+ * @desc    Get consultancy by ID
+ * @access  Private (Any Admin)
+ */
+router.get('/consultancies/:id',
+  verifyAdminToken,
+  requireAnyAdmin,
+  consultancyController.getConsultancyById
+);
+
+/**
+ * @route   PUT /api/admin/consultancies/:id/approve
+ * @desc    Approve consultancy
+ * @access  Private (Moderator and above)
+ */
+router.put('/consultancies/:id/approve',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  consultancyController.approveConsultancy
+);
+
+/**
+ * @route   PUT /api/admin/consultancies/:id/reject
+ * @desc    Reject consultancy
+ * @access  Private (Moderator and above)
+ */
+router.put('/consultancies/:id/reject',
+  verifyAdminToken,
+  requireRole(['SuperAdmin', 'Moderator']),
+  logAdminAction,
+  consultancyController.rejectConsultancy
+);
+
+/**
+ * @route   DELETE /api/admin/consultancies/:id
+ * @desc    Delete consultancy
+ * @access  Private (SuperAdmin only)
+ */
+router.delete('/consultancies/:id',
+  verifyAdminToken,
+  requireSuperAdmin,
+  logAdminAction,
+  consultancyController.deleteConsultancy
+);
+
+// =============================================================================
 // PERMISSION-BASED ROUTES (Examples)
 // =============================================================================
 
@@ -563,26 +637,36 @@ router.post('/system/settings',
   }
 );
 
-// =============================================================================
-// HEALTH CHECK AND STATUS ROUTES
-// =============================================================================
-
 /**
- * @route   GET /api/admin/health
- * @desc    Admin system health check
- * @access  Public (for monitoring)
+ * @route   GET /api/admin/permissions
+ * @desc    Get available permissions
+ * @access  Private (SuperAdmin only)
  */
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Admin system is healthy',
-    data: {
-      status: 'operational',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0'
-    }
-  });
-});
+router.get('/permissions',
+  verifyAdminToken,
+  requireSuperAdmin,
+  (req, res) => {
+    const permissions = [
+      'read', 'create', 'update', 'delete',
+      'manage_users', 'manage_admins', 'manage_settings',
+      'view_logs', 'view_analytics', 'manage_content'
+    ];
+    
+    const modules = [
+      'users', 'admins', 'content', 'settings', 
+      'logs', 'analytics', 'system'
+    ];
+    
+    res.json({
+      success: true,
+      message: 'Permissions retrieved successfully',
+      data: {
+        permissions,
+        modules
+      }
+    });
+  }
+);
 
 /**
  * @route   GET /api/admin/status
@@ -606,6 +690,35 @@ router.get('/status',
       }
     });
   }
+);
+
+// =============================================================================
+// ADMIN ACTIVITY LOGS
+// =============================================================================
+
+/**
+ * @route   GET /api/admin/activity
+ * @desc    Get admin activity logs
+ * @access  Private (SuperAdmin and Moderator with permission)
+ */
+router.get('/activity',
+  verifyAdminToken,
+  requireCustomCheck((admin) => {
+    return admin.role === 'SuperAdmin' || 
+           (admin.role === 'Moderator' && admin.permissions.includes('view_logs'));
+  }),
+  adminController.getAdminActivity
+);
+
+/**
+ * @route   POST /api/admin/activity/log
+ * @desc    Log admin activity (internal use)
+ * @access  Private (Any Admin)
+ */
+router.post('/activity/log',
+  verifyAdminToken,
+  requireAnyAdmin,
+  adminController.logAdminActivity
 );
 
 // =============================================================================
