@@ -15,6 +15,12 @@ const paymentSchema = new Schema(
       required: false, // For consultancy payments
     },
 
+    consultancyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ConsultancyCard",
+      required: false, // For consultancy payments
+    },
+
     amount: {
       type: Number,
       required: true,

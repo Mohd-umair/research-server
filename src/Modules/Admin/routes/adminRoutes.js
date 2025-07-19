@@ -19,7 +19,7 @@ const {
   requireAnyAdmin,
   requireCustomCheck,
   canModifyAdmin,
-  logAdminAction 
+  //// logAdminAction 
 } = require('../middleware/requireRole');
 
 // Import validation middleware (assuming you have one)
@@ -102,7 +102,7 @@ router.post('/users/create',
   verifyAdminToken,
   requireSuperAdmin,
   validateAdminCreation,
-  logAdminAction,
+ // // logAdminAction,
   adminController.createAdmin
 );
 
@@ -136,7 +136,7 @@ router.get('/users/stats',
 router.post('/users/bulk',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   adminController.bulkAdminOperations
 );
 
@@ -161,7 +161,7 @@ router.patch('/users/:id',
   requireAnyAdmin,
   canModifyAdmin,
   validateAdminUpdate,
-  logAdminAction,
+  // logAdminAction,
   adminController.updateAdmin
 );
 
@@ -174,7 +174,7 @@ router.delete('/users/:id',
   verifyAdminToken,
   requireAnyAdmin,
   canModifyAdmin,
-  logAdminAction,
+  // logAdminAction,
   adminController.deleteAdmin
 );
 
@@ -223,7 +223,7 @@ router.get('/students/:id',
 router.patch('/students/:id',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   studentController.updateStudent
 );
 
@@ -235,7 +235,7 @@ router.patch('/students/:id',
 router.delete('/students/:id',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   studentController.deleteStudent
 );
 
@@ -247,7 +247,7 @@ router.delete('/students/:id',
 router.patch('/students/:id/restore',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   studentController.restoreStudent
 );
 
@@ -259,7 +259,7 @@ router.patch('/students/:id/restore',
 router.post('/students/bulk',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   studentController.bulkStudentOperations
 );
 
@@ -307,8 +307,8 @@ router.get('/teachers/:id',
  */
 router.patch('/teachers/:id',
   verifyAdminToken,
-  requireModerator,
-  logAdminAction,
+  // requireModerator,
+  // // logAdminAction,
   teacherController.updateTeacher
 );
 
@@ -320,7 +320,7 @@ router.patch('/teachers/:id',
 router.delete('/teachers/:id',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   teacherController.deleteTeacher
 );
 
@@ -331,8 +331,8 @@ router.delete('/teachers/:id',
  */
 router.put('/teachers/:id/approve',
   verifyAdminToken,
-  requireModerator,
-  logAdminAction,
+  // requireModerator,
+  // // logAdminAction,
   teacherController.approveTeacher
 );
 
@@ -344,7 +344,7 @@ router.put('/teachers/:id/approve',
 router.put('/teachers/:id/reject',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   teacherController.rejectTeacher
 );
 
@@ -356,7 +356,7 @@ router.put('/teachers/:id/reject',
 router.put('/teachers/:id/activate',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   teacherController.activateTeacher
 );
 
@@ -368,7 +368,7 @@ router.put('/teachers/:id/activate',
 router.put('/teachers/:id/deactivate',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   teacherController.deactivateTeacher
 );
 
@@ -380,7 +380,7 @@ router.put('/teachers/:id/deactivate',
 router.post('/teachers/bulk',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   teacherController.bulkTeacherOperations
 );
 
@@ -418,7 +418,7 @@ router.get('/user-requests/stats',
 router.post('/user-requests/bulk',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   userRequestController.bulkUserRequestOperations
 );
 
@@ -441,7 +441,7 @@ router.get('/user-requests/:id',
 router.patch('/user-requests/:id',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+  // logAdminAction,
   userRequestController.updateUserRequest
 );
 
@@ -464,7 +464,7 @@ router.patch('/user-requests/:id/status',
 router.patch('/user-requests/:id/assign',
   verifyAdminToken,
   requireModerator,
-  logAdminAction,
+ // // logAdminAction,
   userRequestController.assignUserRequest
 );
 
@@ -476,7 +476,7 @@ router.patch('/user-requests/:id/assign',
 router.delete('/user-requests/:id',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // // logAdminAction,
   userRequestController.deleteUserRequest
 );
 
@@ -525,7 +525,7 @@ router.get('/consultancies/:id',
 router.put('/consultancies/:id/approve',
   verifyAdminToken,
   requireRole(['SuperAdmin', 'Moderator']),
-  logAdminAction,
+  // // logAdminAction,
   consultancyController.approveConsultancy
 );
 
@@ -537,7 +537,7 @@ router.put('/consultancies/:id/approve',
 router.put('/consultancies/:id/reject',
   verifyAdminToken,
   requireRole(['SuperAdmin', 'Moderator']),
-  logAdminAction,
+  //// logAdminAction,
   consultancyController.rejectConsultancy
 );
 
@@ -549,7 +549,7 @@ router.put('/consultancies/:id/reject',
 router.delete('/consultancies/:id',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+ // // logAdminAction,
   consultancyController.deleteConsultancy
 );
 
@@ -623,7 +623,7 @@ router.get('/system/logs',
 router.post('/system/settings',
   verifyAdminToken,
   requireSuperAdmin,
-  logAdminAction,
+  // logAdminAction,
   (req, res) => {
     // This would typically update system settings
     res.json({

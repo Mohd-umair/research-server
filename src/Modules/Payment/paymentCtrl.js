@@ -60,6 +60,8 @@ const paymentCtrl = {
       razorpay_payment_id, 
       razorpay_signature, 
       teacherId, 
+      consultancyId,
+      studentId,
       amount 
     } = req.body;
 
@@ -72,6 +74,8 @@ const paymentCtrl = {
       razorpay_payment_id,
       razorpay_signature,
       teacherId,
+      consultancyId,
+      studentId,
       amount
     };
 

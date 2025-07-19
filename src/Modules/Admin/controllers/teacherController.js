@@ -275,17 +275,13 @@ const updateTeacher = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { isApproved, isActive, rejectionReasons } = req.body;
-
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return next(new CustomError('Invalid teacher ID format.', 400));
     }
 
     // Find the teacher
-    const teacher = await Teacher.findOne({ 
-      _id: id, 
-      isDelete: false 
-    });
+    const teacher = await Teacher.findOne({  _id: id,  isDelete: false  });
 
     if (!teacher) {
       return next(new CustomError('Teacher not found.', 404));

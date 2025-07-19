@@ -61,7 +61,7 @@ const paymentService = {
       const orderOptions = {
         amount: amount, // Amount is already in paise from frontend
         currency: currency,
-        receipt: `consultancy_${teacherId}_${Date.now()}`,
+        receipt: `c_${teacherId.slice(-6)}_${Date.now()}`,
         notes: {
           teacherId: teacherId,
           consultancyType: consultancyType,
@@ -93,14 +93,27 @@ const paymentService = {
   // New method for verifying consultancy payment
   verifyConsultancyPayment: serviceHandler(async (data) => {
     console.log("Payment Service: Verifying consultancy payment");
+    console.log("Payment Service: Received data:", data);
+    
     try {
       const { 
         razorpay_order_id, 
         razorpay_payment_id, 
         razorpay_signature, 
         teacherId, 
+        consultancyId,
+        studentId,
         amount 
       } = data;
+
+      console.log("Payment Service: Extracted data:", {
+        razorpay_order_id,
+        razorpay_payment_id,
+        teacherId,
+        consultancyId,
+        studentId,
+        amount
+      });
 
       // Verify payment signature
       const generatedSignature = crypto
@@ -119,10 +132,11 @@ const paymentService = {
         throw new Error("Payment not captured successfully");
       }
 
-      // Save payment record
-      const paymentRecord = await model.save({
-        studentId: null, // Will be set when user authentication is implemented
+      // Prepare payment record data
+      const paymentRecordData = {
+        studentId: studentId, // Use the provided studentId or null if not provided
         teacherId: teacherId,
+        consultancyId: consultancyId, // Save the consultancy ID
         amount: amount,
         currency: paymentDetails.currency,
         transactionType: 'consultancy_booking',
@@ -142,9 +156,15 @@ const paymentService = {
         },
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+
+      console.log("Payment Service: Saving payment record with data:", paymentRecordData);
+
+      // Save payment record
+      const paymentRecord = await model.save(paymentRecordData);
 
       console.log("Payment Service: Payment verified and saved successfully");
+      console.log("Payment Service: Saved record ID:", paymentRecord._id);
 
       return {
         paymentId: paymentRecord._id,
@@ -153,6 +173,8 @@ const paymentService = {
         amount: amount,
         status: 'verified',
         teacherId: teacherId,
+        consultancyId: consultancyId,
+        studentId: studentId,
         bookingCreated: true
       };
     } catch (error) {

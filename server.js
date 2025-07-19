@@ -15,9 +15,6 @@ const PORT = process.env.PORT || 5001;
 // Create HTTP server
 const server = http.createServer(app);
 
-// Initialize socket
-conSocket(server);
-
 // Connect to MongoDB
 const activeEnviroment = process.env.NODE_ENV || 'local';
 const activeDbString = {
@@ -47,6 +44,9 @@ async function startServer() {
     // Start server after DB connection and admin initialization
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
+      
+      // Initialize socket after server starts listening
+      conSocket(server, PORT);
     });
   } catch (err) {
     console.error("Server startup error:", err);

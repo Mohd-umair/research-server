@@ -51,7 +51,7 @@ const conversationController = {
 
   /**
    * GET /api/conversations
-   * Get all conversations for the authenticated user
+   * Get all conversations for the authenticated user (both students and teachers)
    */
   getUserConversations: async (req, res) => {
     try {
@@ -153,7 +153,7 @@ const conversationController = {
 
   /**
    * POST /api/conversations/:conversationId/messages
-   * Send a message in a conversation
+   * Send a message in a conversation (both students and teachers)
    */
   sendMessage: async (req, res) => {
     try {

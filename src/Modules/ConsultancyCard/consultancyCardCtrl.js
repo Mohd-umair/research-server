@@ -205,6 +205,8 @@ const consultancyCardCtrl = {
 
   // Public endpoint to get approved consultancies for home page display
   getApprovedConsultancies: asyncHandler(async (req, res, next) => {
+
+    console.log('imhere');
     const { limit = 6, skip = 0, search = '' } = req.body;
     
     const docData = {
