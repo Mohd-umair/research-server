@@ -5,7 +5,7 @@ const paymentSchema = new Schema(
   {
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Student",
       required: false, // Made optional for guest payments
     },
 

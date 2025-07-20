@@ -31,20 +31,42 @@ const paymentCtrl = {
 
   // New method for creating consultancy Razorpay order
   createConsultancyOrder: asyncHandler(async (req, res, next) => {
-    const { amount, currency, teacherId, consultancyType } = req.body;
+    console.log("=== CREATE CONSULTANCY ORDER DEBUG ===");
+    console.log("Request body:", req.body);
+    console.log("Request headers:", req.headers);
+    console.log("User from token:", req.decodedUser);
 
-    if (!amount || !teacherId) {
-      throw new CustomError(400, "Amount and teacher ID are required");
+    const { amount, currency, teacherId, consultancyId, studentId, sessionType } = req.body;
+
+    console.log("Extracted data:", {
+      amount,
+      currency,
+      teacherId,
+      consultancyId,
+      studentId,
+      sessionType
+    });
+
+    if (!amount || !teacherId || !consultancyId) {
+      console.log("Missing required fields");
+      throw new CustomError(400, "Amount, teacher ID, and consultancy ID are required");
     }
 
     const orderData = {
       amount,
       currency: currency || 'INR',
       teacherId,
-      consultancyType: consultancyType || 'hourly_consultation'
+      consultancyId,
+      studentId,
+      sessionType: sessionType || 'single',
+      consultancyType: sessionType === 'project' ? 'project_consultation' : 'hourly_consultation'
     };
 
+    console.log("Order data to service:", orderData);
+
     const order = await paymentService.createConsultancyOrder(orderData);
+
+    console.log("Order created successfully:", order);
 
     return successResponse({
       res: res,
@@ -62,7 +84,8 @@ const paymentCtrl = {
       teacherId, 
       consultancyId,
       studentId,
-      amount 
+      amount,
+      sessionType
     } = req.body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -76,7 +99,8 @@ const paymentCtrl = {
       teacherId,
       consultancyId,
       studentId,
-      amount
+      amount,
+      sessionType: sessionType || 'single'
     };
 
     const verificationResult = await paymentService.verifyConsultancyPayment(verificationData);

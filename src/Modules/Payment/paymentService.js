@@ -54,20 +54,35 @@ const paymentService = {
   // New method for creating consultancy Razorpay order
   createConsultancyOrder: serviceHandler(async (data) => {
     console.log("Payment Service: Creating consultancy Razorpay order");
+    console.log("Payment Service: Received data:", data);
     try {
-      const { amount, currency, teacherId, consultancyType } = data;
+      const { amount, currency, teacherId, consultancyId, studentId, sessionType, consultancyType } = data;
+
+      // Convert amount from rupees to paise (Razorpay expects amount in paise)
+      const amountInPaise = Math.round(amount * 100);
+
+      console.log("Payment Service: Amount conversion:", {
+        originalAmount: amount,
+        amountInPaise: amountInPaise,
+        currency: currency
+      });
 
       // Create Razorpay order
       const orderOptions = {
-        amount: amount, // Amount is already in paise from frontend
+        amount: amountInPaise, // Convert to paise for Razorpay
         currency: currency,
         receipt: `c_${teacherId.slice(-6)}_${Date.now()}`,
         notes: {
           teacherId: teacherId,
+          consultancyId: consultancyId,
+          studentId: studentId,
+          sessionType: sessionType,
           consultancyType: consultancyType,
           orderType: 'consultancy_booking'
         }
       };
+
+      console.log("Payment Service: Razorpay order options:", orderOptions);
 
       const razorpayOrder = await razorpayInstance.orders.create(orderOptions);
       
@@ -79,13 +94,18 @@ const paymentService = {
 
       return {
         id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
+        amount: amountInPaise, // Return amount in paise for frontend Razorpay initialization
         currency: razorpayOrder.currency,
         receipt: razorpayOrder.receipt,
         status: razorpayOrder.status
       };
     } catch (error) {
       console.error("Payment Service: Error creating Razorpay order", error);
+      console.error("Payment Service: Error details:", {
+        message: error.message,
+        statusCode: error.statusCode,
+        error: error.error
+      });
       throw new Error(`Failed to create payment order: ${error.message}`);
     }
   }),
@@ -103,7 +123,8 @@ const paymentService = {
         teacherId, 
         consultancyId,
         studentId,
-        amount 
+        amount,
+        sessionType
       } = data;
 
       console.log("Payment Service: Extracted data:", {
@@ -112,7 +133,8 @@ const paymentService = {
         teacherId,
         consultancyId,
         studentId,
-        amount
+        amount,
+        sessionType
       });
 
       // Verify payment signature
@@ -146,10 +168,13 @@ const paymentService = {
         transactionId: razorpay_payment_id,
         paymentStatus: 'completed',
         paymentMethod: paymentDetails.method,
+        consultancyType: sessionType === 'project' ? 'project_consultation' : 'hourly_consultation',
+        sessionStatus: 'scheduled',
         paymentDetails: {
           razorpay_order_id,
           razorpay_payment_id,
           razorpay_signature,
+          sessionType: sessionType,
           captured_at: paymentDetails.created_at,
           fee: paymentDetails.fee,
           tax: paymentDetails.tax
@@ -175,6 +200,7 @@ const paymentService = {
         teacherId: teacherId,
         consultancyId: consultancyId,
         studentId: studentId,
+        sessionType: sessionType,
         bookingCreated: true
       };
     } catch (error) {

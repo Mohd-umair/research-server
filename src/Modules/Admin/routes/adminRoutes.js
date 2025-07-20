@@ -8,6 +8,7 @@ const studentController = require('../controllers/studentController');
 const teacherController = require('../controllers/teacherController');
 const userRequestController = require('../controllers/userRequestController');
 const consultancyController = require('../controllers/consultancyController');
+const paymentController = require('../controllers/paymentController');
 
 // Import middleware
 const { verifyAdminToken, optionalAdminAuth } = require('../middleware/verifyAdminToken');
@@ -551,6 +552,76 @@ router.delete('/consultancies/:id',
   requireSuperAdmin,
  // // logAdminAction,
   consultancyController.deleteConsultancy
+);
+
+// =============================================================================
+// PAYMENT MANAGEMENT ROUTES
+// =============================================================================
+
+/**
+ * @route   GET /api/admin/payments
+ * @desc    Get all payments with pagination and filtering
+ * @access  Private (Any Admin)
+ */
+router.get('/payments',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.getAllPayments
+);
+
+/**
+ * @route   GET /api/admin/payments/stats
+ * @desc    Get payment statistics
+ * @access  Private (Any Admin)
+ */
+router.get('/payments/stats',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.getPaymentStats
+);
+
+/**
+ * @route   GET /api/admin/payments/export
+ * @desc    Export payments to CSV
+ * @access  Private (Any Admin)
+ */
+router.get('/payments/export',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.exportPayments
+);
+
+/**
+ * @route   GET /api/admin/payments/:paymentId
+ * @desc    Get payment by ID
+ * @access  Private (Any Admin)
+ */
+router.get('/payments/:paymentId',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.getPaymentById
+);
+
+/**
+ * @route   PUT /api/admin/payments/:paymentId/status
+ * @desc    Update payment status
+ * @access  Private (Any Admin)
+ */
+router.put('/payments/:paymentId/status',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.updatePaymentStatus
+);
+
+/**
+ * @route   POST /api/admin/payments/:paymentId/refund
+ * @desc    Process payment refund
+ * @access  Private (Any Admin)
+ */
+router.post('/payments/:paymentId/refund',
+  verifyAdminToken,
+  requireAnyAdmin,
+  paymentController.processRefund
 );
 
 // =============================================================================
