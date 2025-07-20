@@ -2,7 +2,7 @@ const express = require("express");
 const { ExpressPeerServer } = require("peer");
 
 const app = express();
-const PORT = 9000;
+const PORT  = 5000;
 
 // Create a PeerJS server
 const server = app.listen(PORT, () => {
