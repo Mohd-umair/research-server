@@ -20,7 +20,7 @@ const teacherCollaborationCtrl = {
 
       const collaborationData = req.body;
       if (!collaborationData.userType) {
-        docDTO.userType = 'TEACHER';
+        collaborationData.userType = 'TEACHER';
       }
       
       // Add teacherId from token if not provided

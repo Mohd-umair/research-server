@@ -1,5 +1,5 @@
 {
-  "name": "furniture-backend",
+  "name": "research-decode-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -22,7 +22,7 @@
     "express": "^4.19.2",
     "express-fileupload": "^1.5.1",
     "express-validator": "^7.2.0",
-    "furniture-backend": "file:",
+    "research-decode-backend": "file:",
     "jsonwebtoken": "^9.0.1",
     "mongoose": "^7.3.4",
     "multer": "^2.0.1",

@@ -357,7 +357,7 @@ const validateAdminConfig = () => {
   // Check for MongoDB connection - use the same logic as server.js
   const activeEnviroment = process.env.NODE_ENV || 'local';
   const activeDbString = {
-    local: process.env.MONGODB_LOCAL || 'mongodb://localhost:27017/furniture',
+    local: process.env.MONGODB_LOCAL || 'mongodb://localhost:27017/researchdecode',
     test: process.env.MONGODB_TEST,
     prod: process.env.MONGODB_PROD,
   };

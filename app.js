@@ -9,7 +9,7 @@ const { teacherProfileRouter } = require("./src/Modules/TeacherProfile/teacherPr
 const { paymentRouter } = require("./src/Modules/Payment/paymentRouter");
 const CustomError = require("./src/Errors/CustomError");
 const cloudinary = require("cloudinary");
-const peerServer = require("./src/Modules/PeerServer/peerServer");
+const createPeerServer = require("./src/Modules/PeerServer/peerServer");
 
 cloudinary.config({
   cloud_name: "dydmzp82t",
@@ -55,7 +55,9 @@ app.use("/api", (req, res, next) => { console.log('Public API route hit'); next(
 
 app.use("/admin", (req, res, next) => { console.log('Admin route hit'); next(); }, adminRouter);
 app.use("/user", (req, res, next) => { console.log('User route hit'); next(); }, userRouter);
-app.use("/peerjs", (req, res, next) => { console.log('PeerJS route hit'); next(); }, peerServer);
+
+// PeerJS routes will be set up in server.js after the server is created
+// app.use("/peerjs", (req, res, next) => { console.log('PeerJS route hit'); next(); }, peerServer);
 
 app.use(GlobalErrorHandler);
 

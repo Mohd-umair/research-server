@@ -1,20 +1,19 @@
 const express = require("express");
 const { ExpressPeerServer } = require("peer");
 
-const app = express();
-const PORT  = 5000;
+// Function to create and configure PeerJS server
+function createPeerServer(server) {
+  // Create a PeerJS server attached to the provided server
+  const peerServer = ExpressPeerServer(server, {
+    debug: true,
+  });
 
-// Create a PeerJS server
-const server = app.listen(PORT, () => {
-  console.log(`PeerJS server is running on port ${PORT}`);
-});
+  // Add a route to the peer server
+  peerServer.get("/", (req, res) => {
+      res.send("Peerjs server")
+  });
 
-app.get("/", (req, res) => {
-    res.send("Peerjs server")
-})
-// Create a PeerJS server
-const peerServer = ExpressPeerServer(server, {
-  debug: true,
-});
+  return peerServer;
+}
 
-module.exports = peerServer;
+module.exports = createPeerServer;

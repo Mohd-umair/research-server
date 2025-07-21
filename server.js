@@ -4,21 +4,29 @@ const app = require("./app");
 const CustomError = require("./src/Errors/CustomError");
 const http = require("http");
 const conSocket = require("./src/Modules/Sockets/socket");
+const createPeerServer = require("./src/Modules/PeerServer/peerServer");
 
 // Import admin system utilities
 const { initializeAdminSystem, validateAdminConfig } = require('./src/Modules/Admin/utils/adminUtils');
 
 // Define ports
-const SOCKET_PORT = process.env.SOCKET_PORT || 5000;
-const PORT = process.env.PORT || 5001;
+const SOCKET_PORT = process.env.SOCKET_PORT || 3000;
+const PORT = process.env.PORT || 4006;
 
 // Create HTTP server
 const server = http.createServer(app);
 
+// Set up PeerJS server
+const peerServer = createPeerServer(server);
+app.use("/peerjs", (req, res, next) => { 
+  console.log('PeerJS route hit'); 
+  next(); 
+}, peerServer);
+
 // Connect to MongoDB
 const activeEnviroment = process.env.NODE_ENV || 'local';
 const activeDbString = {
-  local: process.env.MONGODB_LOCAL || 'mongodb://localhost:27017/furniture',
+  local: process.env.MONGODB_LOCAL || 'mongodb://localhost:27017/researchdecode',
   test: process.env.MONGODB_TEST,
   prod: process.env.MONGODB_PROD,
 };

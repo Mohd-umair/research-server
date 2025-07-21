@@ -6,6 +6,7 @@ const consultancyRouter = require("./Consultancy/consultancyRouter");
 const consultancyCardRouter = require("./ConsultancyCard/consultancyCardRouter");
 const courseEnrollmentRouter = require("./CourseEnrollment/courseEnrollmentRouter");
 const { courseRouter } = require("./Courses/courseRouter");
+const { earningsRouter } = require("./Earnings/earningsRouter");
 const { paperRequestRouter } = require("./PaperRequest/paperRequestRouter");
 const { profileRouter } = require("./Profiles/profileRouter");
 const { teacherProfileRouter } = require("./TeacherProfile/teacherProfileRouter");
@@ -66,6 +67,7 @@ adminRouter.use("/upload", uploadRouter);
 adminRouter.use("/events", verifyToken, eventRouter);
 adminRouter.use("/teacher-collaboration", verifyToken, teacherCollaborationRouter);
 adminRouter.use("/user-request", userRequestRouter);
+adminRouter.use("/earnings", earningsRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 
@@ -89,6 +91,7 @@ userRouter.use("/webinarEnrollment",verifyToken, webinarEnrollmentRouter);
 userRouter.use("/payment",paymentRouter)
 userRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
+userRouter.use("/earnings", earningsRouter);
 apiRouter.use("/conversations", conversationRouter);
 
 

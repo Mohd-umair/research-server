@@ -7,6 +7,8 @@ const teacher = new DatabaseService(teacherModel);
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 
+// Import earnings service for creating earnings transactions
+const earningsService = require("../Earnings/earningsService");
 
 const paymentGatewayInstance = require("../../Utils/paymentGatewayUtil");
 
@@ -14,6 +16,55 @@ const razorpayInstance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_SECRET,
 });
+
+// Helper function to create earnings transaction when payment is completed
+const createEarningsFromPayment = async (paymentData) => {
+  try {
+    // Only create earnings for payments that involve teachers
+    if (!paymentData.teacherId) {
+      return null;
+    }
+
+    // Calculate platform fee (you can adjust this percentage)
+    const platformFeePercentage = 0.10; // 10% platform fee
+    const platformFee = paymentData.amount * platformFeePercentage;
+    const netAmount = paymentData.amount - platformFee;
+
+    // Determine earnings type based on transaction type
+    let earningsType = 'other';
+    if (paymentData.transactionType === 'consultancy_booking') {
+      earningsType = 'consultancy';
+    } else if (paymentData.transactionType === 'hireTeacher') {
+      earningsType = 'collaboration';
+    }
+
+    // Create earnings transaction data
+    const earningsData = {
+      expertId: paymentData.teacherId,
+      consultancyId: paymentData.consultancyId || null,
+      collaborationId: paymentData.collaborationId || null,
+      paymentId: paymentData._id,
+      amount: paymentData.amount,
+      currency: paymentData.currency || 'INR',
+      status: 'pending', // Initial status
+      type: earningsType,
+      description: `Payment for ${earningsType} - ${paymentData.transactionType}`,
+      paymentDate: new Date(),
+      platformFee: platformFee,
+      netAmount: netAmount
+    };
+
+    // Create the earnings transaction
+    const earningsTransaction = await earningsService.createEarningsTransaction(earningsData);
+    console.log('Earnings transaction created:', earningsTransaction._id);
+    
+    return earningsTransaction;
+  } catch (error) {
+    console.error('Error creating earnings transaction:', error);
+    // Don't throw error to avoid breaking payment flow
+    return null;
+  }
+};
 
 const paymentService = {
   create: serviceHandler(async (data) => {
@@ -100,111 +151,48 @@ const paymentService = {
         status: razorpayOrder.status
       };
     } catch (error) {
-      console.error("Payment Service: Error creating Razorpay order", error);
-      console.error("Payment Service: Error details:", {
-        message: error.message,
-        statusCode: error.statusCode,
-        error: error.error
-      });
-      throw new Error(`Failed to create payment order: ${error.message}`);
+      console.error("Payment Service: Error creating consultancy order:", error);
+      throw new Error(`Failed to create consultancy order: ${error.message}`);
     }
   }),
 
-  // New method for verifying consultancy payment
-  verifyConsultancyPayment: serviceHandler(async (data) => {
-    console.log("Payment Service: Verifying consultancy payment");
-    console.log("Payment Service: Received data:", data);
-    
+  // Updated payment verification to include earnings creation
+  verifyPayment: serviceHandler(async (data) => {
+    console.log("Payment Service: Verifying payment");
     try {
-      const { 
-        razorpay_order_id, 
-        razorpay_payment_id, 
-        razorpay_signature, 
-        teacherId, 
-        consultancyId,
-        studentId,
-        amount,
-        sessionType
-      } = data;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = data;
 
-      console.log("Payment Service: Extracted data:", {
-        razorpay_order_id,
-        razorpay_payment_id,
-        teacherId,
-        consultancyId,
-        studentId,
-        amount,
-        sessionType
-      });
+      // Verify signature
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_SECRET)
+        .update(body.toString())
+        .digest("hex");
 
-      // Verify payment signature
-      const generatedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_SECRET)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest('hex');
-
-      if (generatedSignature !== razorpay_signature) {
-        throw new Error("Payment signature verification failed");
+      if (expectedSignature !== razorpay_signature) {
+        throw new Error("Invalid signature");
       }
 
-      // Get payment details from Razorpay
-      const paymentDetails = await razorpayInstance.payments.fetch(razorpay_payment_id);
-      
-      if (paymentDetails.status !== 'captured') {
-        throw new Error("Payment not captured successfully");
+      // Find and update payment
+      const payment = await PaymentModel.findOne({ razorpayOrderId: razorpay_order_id });
+      if (!payment) {
+        throw new Error("Payment not found");
       }
 
-      // Prepare payment record data
-      const paymentRecordData = {
-        studentId: studentId, // Use the provided studentId or null if not provided
-        teacherId: teacherId,
-        consultancyId: consultancyId, // Save the consultancy ID
-        amount: amount,
-        currency: paymentDetails.currency,
-        transactionType: 'consultancy_booking',
-        referenceModel: 'TeacherProfile',
-        referenceId: teacherId,
-        razorpayOrderId: razorpay_order_id,
-        transactionId: razorpay_payment_id,
-        paymentStatus: 'completed',
-        paymentMethod: paymentDetails.method,
-        consultancyType: sessionType === 'project' ? 'project_consultation' : 'hourly_consultation',
-        sessionStatus: 'scheduled',
-        paymentDetails: {
-          razorpay_order_id,
-          razorpay_payment_id,
-          razorpay_signature,
-          sessionType: sessionType,
-          captured_at: paymentDetails.created_at,
-          fee: paymentDetails.fee,
-          tax: paymentDetails.tax
-        },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      // Update payment status
+      payment.paymentStatus = "Completed";
+      payment.transactionId = razorpay_payment_id;
+      await payment.save();
 
-      console.log("Payment Service: Saving payment record with data:", paymentRecordData);
+      // Create earnings transaction if this payment involves a teacher
+      if (payment.teacherId) {
+        await createEarningsFromPayment(payment);
+      }
 
-      // Save payment record
-      const paymentRecord = await model.save(paymentRecordData);
-
-      console.log("Payment Service: Payment verified and saved successfully");
-      console.log("Payment Service: Saved record ID:", paymentRecord._id);
-
-      return {
-        paymentId: paymentRecord._id,
-        transactionId: razorpay_payment_id,
-        orderId: razorpay_order_id,
-        amount: amount,
-        status: 'verified',
-        teacherId: teacherId,
-        consultancyId: consultancyId,
-        studentId: studentId,
-        sessionType: sessionType,
-        bookingCreated: true
-      };
+      console.log("Payment Service: Payment verified and earnings created");
+      return payment;
     } catch (error) {
-      console.error("Payment Service: Error verifying payment", error);
+      console.error("Payment Service: Error verifying payment:", error);
       throw new Error(`Payment verification failed: ${error.message}`);
     }
   }),
