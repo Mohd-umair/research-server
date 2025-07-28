@@ -143,12 +143,39 @@ const paymentService = {
 
       console.log("Payment Service: Razorpay order created successfully", razorpayOrder.id);
 
+      // Create payment record in database
+      const paymentData = {
+        studentId: studentId,
+        teacherId: teacherId,
+        consultancyId: consultancyId,
+        amount: amount, // Store original amount in rupees
+        currency: currency,
+        transactionType: 'consultancy_booking',
+        referenceModel: 'ConsultancyCard',
+        referenceId: consultancyId,
+        razorpayOrderId: razorpayOrder.id,
+        transactionId: "", // Will be filled during verification
+        paymentStatus: "Pending",
+        consultancyType: consultancyType || (sessionType === 'project' ? 'project_consultation' : 'hourly_consultation')
+      };
+
+      console.log("Payment Service: Creating payment record:", paymentData);
+
+      const paymentRecord = await model.save(paymentData);
+      
+      if (!paymentRecord) {
+        throw new Error("Failed to create payment record");
+      }
+
+      console.log("Payment Service: Payment record created successfully", paymentRecord._id);
+
       return {
         id: razorpayOrder.id,
         amount: amountInPaise, // Return amount in paise for frontend Razorpay initialization
         currency: razorpayOrder.currency,
         receipt: razorpayOrder.receipt,
-        status: razorpayOrder.status
+        status: razorpayOrder.status,
+        paymentId: paymentRecord._id
       };
     } catch (error) {
       console.error("Payment Service: Error creating consultancy order:", error);
@@ -194,6 +221,81 @@ const paymentService = {
     } catch (error) {
       console.error("Payment Service: Error verifying payment:", error);
       throw new Error(`Payment verification failed: ${error.message}`);
+    }
+  }),
+
+  // New method for verifying consultancy payments specifically
+  verifyConsultancyPayment: serviceHandler(async (data) => {
+    console.log("Payment Service: Verifying consultancy payment");
+    try {
+      const { 
+        razorpay_order_id, 
+        razorpay_payment_id, 
+        razorpay_signature, 
+        teacherId, 
+        consultancyId,
+        studentId,
+        amount,
+        sessionType
+      } = data;
+
+      // Verify signature
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_SECRET)
+        .update(body.toString())
+        .digest("hex");
+
+      if (expectedSignature !== razorpay_signature) {
+        throw new Error("Invalid signature");
+      }
+
+      // Find and update payment
+      let payment = await PaymentModel.findOne({ razorpayOrderId: razorpay_order_id });
+      
+      if (!payment) {
+        console.log("Payment Service: Payment record not found, creating one...");
+        // Create payment record if it doesn't exist (fallback)
+        const paymentData = {
+          studentId: studentId,
+          teacherId: teacherId,
+          consultancyId: consultancyId,
+          amount: amount,
+          currency: 'INR',
+          transactionType: 'consultancy_booking',
+          referenceModel: 'ConsultancyCard',
+          referenceId: consultancyId,
+          razorpayOrderId: razorpay_order_id,
+          transactionId: razorpay_payment_id,
+          paymentStatus: "Completed",
+          consultancyType: sessionType === 'project' ? 'project_consultation' : 'hourly_consultation'
+        };
+        
+        payment = await model.save(paymentData);
+        console.log("Payment Service: Created payment record during verification:", payment._id);
+      } else {
+        // Update existing payment status
+        payment.paymentStatus = "Completed";
+        payment.transactionId = razorpay_payment_id;
+        payment.teacherId = teacherId;
+        payment.consultancyId = consultancyId;
+        payment.studentId = studentId;
+        payment.amount = amount;
+        payment.transactionType = 'consultancy_booking';
+        await payment.save();
+        console.log("Payment Service: Updated existing payment record:", payment._id);
+      }
+
+      // Create earnings transaction for the teacher
+      if (teacherId) {
+        await createEarningsFromPayment(payment);
+      }
+
+      console.log("Payment Service: Consultancy payment verified and earnings created");
+      return payment;
+    } catch (error) {
+      console.error("Payment Service: Error verifying consultancy payment:", error);
+      throw new Error(`Consultancy payment verification failed: ${error.message}`);
     }
   }),
 
