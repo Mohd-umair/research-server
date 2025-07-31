@@ -12,10 +12,23 @@ const earningsService = require("../Earnings/earningsService");
 
 const paymentGatewayInstance = require("../../Utils/paymentGatewayUtil");
 
-const razorpayInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_SECRET,
-});
+// Lazy initialization of Razorpay instance
+let razorpayInstance = null;
+
+const getRazorpayInstance = () => {
+  if (!razorpayInstance) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+      console.warn('⚠️  Razorpay credentials not found in payment service');
+      throw new Error('Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_SECRET environment variables.');
+    }
+    
+    razorpayInstance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
+    });
+  }
+  return razorpayInstance;
+};
 
 // Helper function to create earnings transaction when payment is completed
 const createEarningsFromPayment = async (paymentData) => {
@@ -135,7 +148,7 @@ const paymentService = {
 
       console.log("Payment Service: Razorpay order options:", orderOptions);
 
-      const razorpayOrder = await razorpayInstance.orders.create(orderOptions);
+      const razorpayOrder = await getRazorpayInstance().orders.create(orderOptions);
       
       if (!razorpayOrder) {
         throw new Error("Failed to create Razorpay order");

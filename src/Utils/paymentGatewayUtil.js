@@ -4,14 +4,25 @@ const axios = require("axios");
 
 class PaymentGateway {
   constructor() {
-    this.instance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_SECRET,
-    });
+    this._instance = null;
   }
 
   getInstance() {
-    return this.instance;
+    if (!this._instance) {
+      // Check if environment variables are available
+      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+        console.warn('⚠️  Razorpay credentials not found in environment variables');
+        console.warn('   RAZORPAY_KEY_ID:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'NOT SET');
+        console.warn('   RAZORPAY_SECRET:', process.env.RAZORPAY_SECRET ? 'SET' : 'NOT SET');
+        throw new Error('Razorpay credentials not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_SECRET environment variables.');
+      }
+      
+      this._instance = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_SECRET,
+      });
+    }
+    return this._instance;
   }
 
   getAuthKey() {
@@ -19,15 +30,25 @@ class PaymentGateway {
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_SECRET,
     }
+    
+    if (!creds.key_id || !creds.key_secret) {
+      throw new Error('Razorpay credentials not configured');
+    }
+    
     return Buffer.from(`${creds.key_id}:${creds.key_secret}`).toString("base64")
   }
 
   verifySignature(razorpay_order_id, razorpay_payment_id, signature) {
+    if (!process.env.RAZORPAY_SECRET) {
+      throw new Error('RAZORPAY_SECRET not configured');
+    }
+    
     const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_SECRET);
     shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
     const digest = shasum.digest("hex");
     return digest === signature;
   }
+  
   async createContact({ name, email, contact, type = "vendor", reference_id, notes = {} }) {
     try {
       const res = await axios.post(
@@ -113,6 +134,8 @@ class PaymentGateway {
   }
 
 }
+
+// Create a singleton instance but don't initialize it immediately
 const paymentGatewayInstance = new PaymentGateway()
 module.exports = paymentGatewayInstance
 
