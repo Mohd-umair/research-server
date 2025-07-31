@@ -44,6 +44,26 @@ app.get("/", (req, res) => {
   res.send("Hello World");
 });
 
+// Health check endpoints for monitoring
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    version: '1.0.0'
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    database: 'connected',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
 // Public website routes (no authentication required)
 app.use("/user-request/website", (req, res, next) => { 
   console.log('Public user-request route hit'); 

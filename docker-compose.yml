@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "5002:5002"
+    environment:
+      - NODE_ENV=prod
+      - PORT=5002
+      - SOCKET_PORT=5001
+      - MONGODB_PROD=mongodb+srv://shayezkarimcide:Kzf9BToFNc3ZHcHG@researchdecode.09dvtd1.mongodb.net/
+      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production_research_decode_2024
+      - JWT_EXPIRES_IN=24h
+      - JWT_ADMIN_EXPIRES_IN=24h
+      - INITIAL_SUPER_ADMIN_EMAIL=superadmin@research.com
+      - INITIAL_SUPER_ADMIN_PASSWORD=SuperAdmin123!
+      - INITIAL_SUPER_ADMIN_NAME=System Administrator
+      - BCRYPT_ROUNDS=12
+      - MAX_LOGIN_ATTEMPTS=5
+      - LOCK_TIME=15
+      - RAZORPAY_KEY_ID=rzp_test_jLhZZYBPKlMBn9
+      - RAZORPAY_SECRET=zEhFSyPXABeTkMMClwK9LxIn
+      - RAZORPAYX_ACCOUNT_NUMBER=2323230025954705
+      - CLOUDINARY_CLOUD_NAME=dydmzp82t
+      - CLOUDINARY_API_KEY=573256125428726
+      - CLOUDINARY_API_SECRET=ZxVgyMOzXuHjHqwHLbavF94iOf4
+      - BASE_URL=https://prodapi.researchdecode.com
+      - FRONTEND_URL=https://researchdecode.com
+      - ADMIN_PANEL_URL=https://admin.researchdecode.com
+    volumes:
+      - ./uploads:/app/public/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 
