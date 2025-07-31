@@ -20,7 +20,15 @@ cloudinary.config({
 const app = express();
 
 // initialise required modules
-app.use(cors({ origin: "*" }));
+app.use(cors({ 
+  origin: ["http://localhost:4200", "http://localhost:3000", "https://researchdecode.com", "https://www.researchdecode.com", "https://admin.researchdecode.com"],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Parse JSON and URL encoded data for all routes EXCEPT upload routes
 app.use('/admin/upload', (req, res, next) => {
