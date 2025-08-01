@@ -32,7 +32,8 @@ const corsOrigins = process.env.CORS_ORIGINS
       "https://researchdecode.com", 
       "https://www.researchdecode.com", 
       "https://admin.researchdecode.com",
-      "https://srv695649.hstgr.cloud"
+      "https://srv695649.hstgr.cloud", 
+      "http://46.202.166.229"
     ];
 
 app.use(cors({ 
