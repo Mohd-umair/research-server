@@ -23,7 +23,10 @@ const app = express();
 const corsOrigins = process.env.CORS_ORIGINS 
   ? process.env.CORS_ORIGINS.split(',') 
   : [
-      // "http://localhost:4200", 
+      "http://localhost:4200", 
+      "https://46.202.166.229", 
+      "http://46.202.166.229", 
+
       "http://localhost:4201", 
 
       "http://localhost:3000", 
@@ -33,7 +36,6 @@ const corsOrigins = process.env.CORS_ORIGINS
       "https://www.researchdecode.com", 
       "https://admin.researchdecode.com",
       "https://srv695649.hstgr.cloud", 
-      "http://46.202.166.229"
     ];
 
 app.use(cors({ 
