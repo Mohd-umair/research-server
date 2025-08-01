@@ -20,8 +20,21 @@ cloudinary.config({
 const app = express();
 
 // initialise required modules
+const corsOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',') 
+  : [
+      "http://localhost:4200", 
+      "http://localhost:3000", 
+      "http://localhost:8080",
+      "http://localhost:3001",
+      "https://researchdecode.com", 
+      "https://www.researchdecode.com", 
+      "https://admin.researchdecode.com",
+      "https://srv695649.hstgr.cloud"
+    ];
+
 app.use(cors({ 
-  origin: ["http://localhost:4200", "http://localhost:3000", "https://researchdecode.com", "https://www.researchdecode.com", "https://admin.researchdecode.com"],
+  origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
