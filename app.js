@@ -26,11 +26,7 @@ const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',') 
   : [
       "http://localhost:4200", 
-      "https://46.202.166.229", 
-      "http://46.202.166.229", 
-
       "http://localhost:4201", 
-
       "http://localhost:3000", 
       "http://localhost:8080",
       "http://localhost:3001",
@@ -38,14 +34,28 @@ const corsOrigins = process.env.CORS_ORIGINS
       "https://www.researchdecode.com", 
       "https://admin.researchdecode.com",
       "https://srv695649.hstgr.cloud", 
+      "http://46.202.166.229"
     ];
 
-app.use(cors({ 
-  origin: corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+    // app.use(cors({
+    //   origin: function (origin, callback) {
+    //     // Allow requests with no origin (like curl, postman)
+    //     if (!origin) return callback(null, true);
+    //     if (corsOrigins.indexOf(origin) !== -1) {
+    //       callback(null, true);
+    //     } else {
+    //       callback(new Error('Not allowed by CORS'));
+    //     }
+    //   },
+    //   credentials: true,
+    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    // }));
+
+    app.use(cors({
+      origin: '*', // allow all origins temporarily
+      credentials: true, // you can disable credentials for testing
+    }));
 
 // Handle preflight requests
 app.options('*', cors());
