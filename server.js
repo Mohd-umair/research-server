@@ -24,7 +24,7 @@ app.use("/peerjs", (req, res, next) => {
 }, peerServer);
 
 // Connect to MongoDB
-const activeEnviroment = process.env.NODE_ENV || 'local';
+const activeEnviroment = process.env.NODE_ENV || 'prod';
 const activeDbString = {
   local: process.env.MONGODB_LOCAL || 'mongodb://localhost:27017/researchdecode',
   test: process.env.MONGODB_TEST,
