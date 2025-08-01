@@ -37,25 +37,25 @@ const corsOrigins = process.env.CORS_ORIGINS
       "http://46.202.166.229"
     ];
 
-    // app.use(cors({
-    //   origin: function (origin, callback) {
-    //     // Allow requests with no origin (like curl, postman)
-    //     if (!origin) return callback(null, true);
-    //     if (corsOrigins.indexOf(origin) !== -1) {
-    //       callback(null, true);
-    //     } else {
-    //       callback(new Error('Not allowed by CORS'));
-    //     }
-    //   },
-    //   credentials: true,
-    //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    // }));
-
     app.use(cors({
-      origin: '*', // allow all origins temporarily
-      credentials: true, // you can disable credentials for testing
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like curl, postman)
+        if (!origin) return callback(null, true);
+        if (corsOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     }));
+
+    // app.use(cors({
+    //   origin: '*', // allow all origins temporarily
+    //   credentials: true, // you can disable credentials for testing
+    // }));
 
 // Handle preflight requests
 app.options('*', cors());
