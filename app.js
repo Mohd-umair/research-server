@@ -22,20 +22,18 @@ const app = express();
 console.log('>>>>>>>>>>>>>>>>>imhere');
 
 // initialise required modules
-const corsOrigins = process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',') 
-  : [
-      "http://localhost:4200", 
-      "http://localhost:4201", 
-      "http://localhost:3000", 
-      "http://localhost:8080",
-      "http://localhost:3001",
-      "https://researchdecode.com", 
-      "https://www.researchdecode.com", 
-      "https://admin.researchdecode.com",
-      "https://srv695649.hstgr.cloud", 
-      "http://46.202.166.229"
-    ];
+const corsOrigins = [
+  "http://localhost:4200", 
+  "http://localhost:4201", 
+  "http://localhost:3000", 
+  "http://localhost:8080",
+  "http://localhost:3001",
+  "https://researchdecode.com", 
+  "https://www.researchdecode.com", 
+  "https://admin.researchdecode.com",
+  "https://srv695649.hstgr.cloud", 
+  "http://46.202.166.229"
+];
 
     app.use(cors({
       origin: function (origin, callback) {
