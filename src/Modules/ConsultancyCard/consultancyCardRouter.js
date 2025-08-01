@@ -7,7 +7,6 @@ consultancyCardRouter.post("/create", verifyToken, consultancyCardCtrl.create);
 consultancyCardRouter.post("/getById", consultancyCardCtrl.getById);
 // Public route for approved consultancies (no auth required)
 consultancyCardRouter.post("/getApproved", consultancyCardCtrl.getApprovedConsultancies);
-consultancyCardRouter.get("/getApproved", consultancyCardCtrl.getApprovedConsultancies); // Added GET route
 consultancyCardRouter.post("/getAll", verifyToken, consultancyCardCtrl.getAll);
 consultancyCardRouter.post("/getUserConsultancyCard", verifyToken, consultancyCardCtrl.getUserConsultancyCard);
 consultancyCardRouter.post("/update", verifyToken, consultancyCardCtrl.update);
