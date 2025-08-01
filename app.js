@@ -19,7 +19,7 @@ cloudinary.config({
 
 const app = express();
 
-console.log('imhere');
+console.log('>>>>>>>>>>>>>>>>>imhere');
 
 // initialise required modules
 const corsOrigins = process.env.CORS_ORIGINS 
