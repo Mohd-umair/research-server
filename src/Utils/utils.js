@@ -45,7 +45,7 @@ const generateAdminToken = (adminObj) => {
 
 const verifyToken = (req, res, next) => {
   try {
-    const authHeader = req.header("Authorization");
+    const authHeader = req.headers.authorization || req.header("Authorization");
     console.log('Auth header:', authHeader);
 
     if (!authHeader) {
@@ -67,14 +67,23 @@ const verifyToken = (req, res, next) => {
       userType: decodedUser.userType 
     });
     
+    // Set user information on req.user (this is what controllers expect)
+    req.user = {
+      id: decodedUser._id,
+      firstName: decodedUser.firstName,
+      userType: decodedUser.userType
+    };
+    
+    // Also set for backward compatibility
     req.body.createdBy = decodedUser._id;
     req.body.decodedUser = decodedUser;
-    req.body.userRole = decodedUser.role; // Attach decoded user to request object
+    req.body.userRole = decodedUser.role;
     req.decodedUser = decodedUser;
     
-    console.log('Added to req.body:', { 
-      createdBy: req.body.createdBy, 
-      userRole: req.body.userRole 
+    console.log('Added to req.user:', { 
+      id: req.user.id,
+      firstName: req.user.firstName,
+      userType: req.user.userType
     });
     
     next();
