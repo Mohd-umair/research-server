@@ -53,8 +53,8 @@ async function startServer() {
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       
-      // Initialize socket after server starts listening
-      conSocket(server, SOCKET_PORT);
+      // Initialize socket after server starts listening - use same port as main server
+      conSocket(server, PORT);
     });
   } catch (err) {
     console.error("Server startup error:", err);

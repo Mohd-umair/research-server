@@ -22,7 +22,7 @@ const conversationService = {
     } = data;
 
     // Security check: Ensure the requesting user is the student
-    if (decodedUser._id !== studentId) {
+    if (decodedUser.id !== studentId) {
       throw new Error("Unauthorized: You can only initiate chats for yourself");
     }
 
@@ -86,7 +86,7 @@ const conversationService = {
    */
   getUserConversations: serviceHandler(async (data) => {
     const { decodedUser } = data;
-    const userId = decodedUser._id;
+    const userId = decodedUser.id;
 
     const pipeline = [
       {
@@ -204,7 +204,7 @@ const conversationService = {
    */
   getConversationById: serviceHandler(async (data) => {
     const { conversationId, decodedUser } = data;
-    const userId = decodedUser._id;
+    const userId = decodedUser.id;
 
     const conversation = await model.getDocument({
       _id: conversationId,
@@ -232,7 +232,7 @@ const conversationService = {
    */
   updateConversationStatus: serviceHandler(async (data) => {
     const { conversationId, status, decodedUser } = data;
-    const userId = decodedUser._id;
+    const userId = decodedUser.id;
 
     const conversation = await model.getDocument({
       _id: conversationId,
@@ -255,7 +255,7 @@ const conversationService = {
    */
   markAsRead: serviceHandler(async (data) => {
     const { conversationId, decodedUser } = data;
-    const userId = decodedUser._id;
+    const userId = decodedUser.id;
 
     const conversation = await model.getDocument({
       _id: conversationId,
@@ -297,7 +297,7 @@ const conversationService = {
    */
   deleteConversation: serviceHandler(async (data) => {
     const { conversationId, decodedUser } = data;
-    const userId = decodedUser._id;
+    const userId = decodedUser.id;
 
     const conversation = await model.getDocument({
       _id: conversationId,

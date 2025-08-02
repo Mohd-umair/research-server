@@ -57,7 +57,7 @@ const chatService = {
     // Verify user has access to this conversation
     const conversation = await conversationModel.getDocument({
       _id: conversationId,
-      'participants.user': new ObjectId(decodedUser._id),
+      'participants.user': new ObjectId(decodedUser.id),
       isDelete: false
     });
     
@@ -114,7 +114,7 @@ const chatService = {
   // Keep existing methods for backward compatibility
   getInbox: serviceHandler(async (data) => {
     const { decodedUser } = data ?? {};
-    const loggedInUserId = decodedUser._id
+    const loggedInUserId = decodedUser.id
 
     const returnObjectId = (id) => {
       return new ObjectId(id)

@@ -20,7 +20,7 @@ const conversationController = {
         return res.status(400).json({ msg: "Teacher ID is required" });
       }
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -30,7 +30,7 @@ const conversationController = {
       }
       
       const result = await conversationService.initiateConversation({
-        studentId: decodedUser._id,
+        studentId: decodedUser.id,
         teacherId,
         consultancyId,
         consultancyTitle,
@@ -56,8 +56,10 @@ const conversationController = {
   getUserConversations: async (req, res) => {
     try {
       const decodedUser = req.user || req.decodedUser;
+
+      console.log('>>>>>>>>>>>>>>>',  decodedUser);
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -89,7 +91,7 @@ const conversationController = {
       const { conversationId } = req.params;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -124,7 +126,7 @@ const conversationController = {
       const { page = 1, limit = 50 } = req.query;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -153,7 +155,7 @@ const conversationController = {
 
   /**
    * POST /api/conversations/:conversationId/messages
-   * Send a message in a conversation (both students and teachers)
+   * Send a message in a conversation
    */
   sendMessage: async (req, res) => {
     try {
@@ -161,7 +163,7 @@ const conversationController = {
       const { content, messageType = 'text', attachment = null } = req.body;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -177,7 +179,7 @@ const conversationController = {
       
       // Find the recipient (other participant)
       const otherParticipant = conversation.participants.find(p => 
-        p.user.toString() !== decodedUser._id
+        p.user.toString() !== decodedUser.id
       );
       
       if (!otherParticipant) {
@@ -186,7 +188,7 @@ const conversationController = {
       
       const messageData = {
         conversationId,
-        sender: decodedUser._id,
+        sender: decodedUser.id,
         recipient: otherParticipant.user,
         message: content,
         messageType,
@@ -218,7 +220,7 @@ const conversationController = {
       const { conversationId } = req.params;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -228,7 +230,7 @@ const conversationController = {
       
       const result = await chatService.markMessagesAsSeen({
         conversationId,
-        userId: decodedUser._id
+        userId: decodedUser.id
       });
       
       return successResponse({
@@ -253,7 +255,7 @@ const conversationController = {
       const { status } = req.body;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -294,7 +296,7 @@ const conversationController = {
       const { conversationId } = req.params;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -328,7 +330,7 @@ const conversationController = {
       const { conversationId } = req.params;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
@@ -362,7 +364,7 @@ const conversationController = {
       const { conversationId } = req.params;
       const decodedUser = req.user || req.decodedUser;
       
-      if (!decodedUser || !decodedUser._id) {
+      if (!decodedUser || !decodedUser.id) {
         return res.status(401).json({ msg: "Authentication required" });
       }
       
