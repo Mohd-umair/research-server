@@ -21,8 +21,14 @@ const authenticateSocket = (socket, next) => {
 
     // Verify JWT token using the same secret as the rest of the backend
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded._id || decoded.id;
-    socket.user = decoded;
+    
+    // Be consistent with the verifyToken middleware - JWT contains _id, but we use id
+    socket.userId = decoded._id; // JWT token contains _id
+    socket.user = {
+      id: decoded._id, // Set id for consistency with req.user format
+      firstName: decoded.firstName,
+      userType: decoded.userType
+    };
     
     console.log(`Socket authenticated for user: ${socket.userId}`);
     next();
@@ -104,7 +110,7 @@ const conSocket = (server, port) => {
         // Verify user has access to this conversation
         const conversation = await conversationService.getConversationById({
           conversationId,
-          decodedUser: { _id: senderId }
+          decodedUser: { id: senderId } // Use consistent id format
         });
 
         if (!conversation) {
@@ -223,7 +229,7 @@ const conSocket = (server, port) => {
         // Update conversation unread count
         await conversationService.markAsRead({ 
           conversationId, 
-          decodedUser: { _id: userId } 
+          decodedUser: { id: userId } // Use consistent id format
         });
         
         // Notify conversation participants
@@ -251,7 +257,7 @@ const conSocket = (server, port) => {
         // Update conversation unread count
         await conversationService.markAsRead({ 
           conversationId, 
-          decodedUser: { _id: userId } 
+          decodedUser: { id: userId } // Use consistent id format
         });
         
         // Notify conversation participants
