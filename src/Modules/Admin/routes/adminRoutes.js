@@ -374,6 +374,17 @@ router.put('/teachers/:id/deactivate',
 );
 
 /**
+ * @route   GET /api/admin/teachers/:id/resume
+ * @desc    Download teacher resume
+ * @access  Private (Any Admin)
+ */
+router.get('/teachers/:id/resume',
+  verifyAdminToken,
+  requireAnyAdmin,
+  teacherController.downloadResume
+);
+
+/**
  * @route   POST /api/admin/teachers/bulk
  * @desc    Bulk operations on teachers
  * @access  Private (SuperAdmin only)
