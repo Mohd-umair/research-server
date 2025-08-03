@@ -107,7 +107,6 @@ app.use("/user-request/website", (req, res, next) => {
 
 // Public API routes
 app.use("/api", (req, res, next) => { console.log('Public API route hit'); next(); }, apiRouter);
-
 app.use("/admin", (req, res, next) => { console.log('Admin route hit'); next(); }, adminRouter);
 app.use("/user", (req, res, next) => { console.log('User route hit'); next(); }, userRouter);
 
