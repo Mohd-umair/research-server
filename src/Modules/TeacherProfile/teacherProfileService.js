@@ -11,14 +11,14 @@ const teacherProfileService = {
   getPublicProfile: serviceHandler(async (teacherId) => {
     const query = { 
       userId: teacherId,
-      isDeleted: false,
-      profileStatus: 'approved' // Only show approved profiles publicly
+      isDeleted: false
+      // Temporarily removed profileStatus: 'approved' for development
     };
     
     const profile = await model.getDocument(query);
     
     if (!profile) {
-      throw new CustomError(404, "Teacher profile not found or not approved");
+      throw new CustomError(404, "Teacher profile not found");
     }
     
     // Return only public information
