@@ -2,6 +2,10 @@ const Teacher = require('../../Teachers/teacherModel');
 const TeacherProfile = require('../../TeacherProfile/teacherProfileModel');
 const CustomError = require('../../../Errors/CustomError');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
+const http = require('http');
 
 /**
  * Get all teachers with pagination, filtering, and profile data
@@ -867,6 +871,78 @@ const deactivateTeacher = async (req, res, next) => {
   }
 };
 
+/**
+ * Download teacher resume
+ * GET /api/admin/teachers/:id/resume
+ */
+const downloadResume = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(new CustomError('Invalid teacher ID format.', 400));
+    }
+
+    // Find the teacher profile
+    const teacherProfile = await TeacherProfile.findOne({ 
+      userId: id,
+      isDeleted: false
+    });
+
+    if (!teacherProfile) {
+      return next(new CustomError('Teacher profile not found.', 404));
+    }
+
+    // Check if resume exists
+    if (!teacherProfile.professional?.resume) {
+      return next(new CustomError('No resume uploaded for this teacher.', 404));
+    }
+
+    const resumeUrl = teacherProfile.professional.resume;
+    console.log('Resume URL from database:', resumeUrl);
+    
+    // Check if it's a Cloudinary URL
+    if (resumeUrl.includes('cloudinary.com')) {
+      // For Cloudinary URLs, fetch the file and serve it
+      const url = new URL(resumeUrl);
+      const protocol = url.protocol === 'https:' ? https : http;
+      
+      const request = protocol.get(url, (response) => {
+        if (response.statusCode === 200) {
+          // Set headers for file download
+          res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+          res.setHeader('Content-Disposition', `attachment; filename="${path.basename(resumeUrl)}"`);
+          res.setHeader('Content-Length', response.headers['content-length']);
+          
+          // Pipe the response to our response
+          response.pipe(res);
+        } else {
+          next(new CustomError('Failed to fetch resume from Cloudinary.', 500));
+        }
+      });
+
+      request.on('error', (error) => {
+        console.error('Error fetching from Cloudinary:', error);
+        next(new CustomError('Error downloading resume file.', 500));
+      });
+
+      request.setTimeout(30000, () => {
+        request.destroy();
+        next(new CustomError('Timeout while downloading resume.', 500));
+      });
+    } else {
+      // Handle case where we have just a filename or local path
+      // For now, return an error since we don't have the full Cloudinary URL
+      return next(new CustomError('Resume file URL is not properly configured. Please contact support.', 500));
+    }
+
+  } catch (error) {
+    console.error('Download resume error:', error);
+    next(new CustomError('Failed to download resume.', 500));
+  }
+};
+
 module.exports = {
   getAllTeachers,
   getTeacherById,
@@ -877,5 +953,6 @@ module.exports = {
   approveTeacher,
   rejectTeacher,
   activateTeacher,
-  deactivateTeacher
+  deactivateTeacher,
+  downloadResume
 }; 
