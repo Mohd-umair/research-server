@@ -1,5 +1,6 @@
 const ConsultancyCard = require('../../ConsultancyCard/consultancyCardModel');
 const CustomError = require('../../../Errors/CustomError');
+const mongoose = require('mongoose');
 
 /**
  * Get all consultancies for admin management
@@ -76,15 +77,48 @@ const getAllConsultancies = async (req, res, next) => {
 const getConsultancyById = async (req, res, next) => {
   try {
     const { id } = req.params;
+    
+    console.log('=== GET CONSULTANCY BY ID ===');
+    console.log('Requested ID:', id);
+    console.log('ID type:', typeof id);
+    console.log('Is valid ObjectId:', mongoose.Types.ObjectId.isValid(id));
 
-    const consultancy = await ConsultancyCard.findById(id)
-      .populate('teacherId', 'firstName lastName email profilePicture phone')
-      .populate('approvedBy', 'fullName email')
-      .populate('rejectedBy', 'fullName email')
-      .lean();
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('Invalid ObjectId format');
+      return next(new CustomError('Invalid consultancy ID format.', 400));
+    }
 
-    if (!consultancy) {
+    console.log('Attempting to find consultancy...');
+    
+    // Try a simple query first without populate
+    const consultancy = await ConsultancyCard.findById(id).lean();
+    
+    console.log('Consultancy found:', !!consultancy);
+    if (consultancy) {
+      console.log('Consultancy data:', {
+        _id: consultancy._id,
+        title: consultancy.title,
+        teacherId: consultancy.teacherId,
+        status: consultancy.status
+      });
+    } else {
+      console.log('Consultancy not found in database');
       return next(new CustomError('Consultancy not found.', 404));
+    }
+
+    // If basic query works, try to populate manually
+    if (consultancy.teacherId) {
+      console.log('Attempting to populate teacher data...');
+      try {
+        const Teacher = require('../../Teachers/teacherModel');
+        const teacher = await Teacher.findById(consultancy.teacherId).lean();
+        consultancy.teacherId = teacher;
+        console.log('Teacher populated successfully:', !!teacher);
+      } catch (populateError) {
+        console.error('Error populating teacher:', populateError);
+        // Continue without populate
+      }
     }
 
     res.status(200).json({
@@ -95,6 +129,25 @@ const getConsultancyById = async (req, res, next) => {
 
   } catch (error) {
     console.error('Get consultancy by ID error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Check if it's a database connection error
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError') {
+      return next(new CustomError('Database connection error. Please try again.', 500));
+    }
+    
+    // Check if it's a validation error
+    if (error.name === 'ValidationError') {
+      return next(new CustomError('Invalid consultancy data.', 400));
+    }
+    
+    // Check if it's a cast error (invalid ObjectId)
+    if (error.name === 'CastError') {
+      return next(new CustomError('Invalid consultancy ID format.', 400));
+    }
+    
     next(new CustomError('Failed to retrieve consultancy.', 500));
   }
 };

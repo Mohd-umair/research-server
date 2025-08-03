@@ -41,18 +41,51 @@ const validationErrorHandler = (err) => {
 };
 
 module.exports = (error, req, res, next) => {
-  error.statusCode = error.statusCode || 500;
-  error.status = error.status || "Error";
+  // Ensure we have a valid status code
+  const statusCode = error.statusCode || 500;
+  const status = error.status || "Error";
 
+  console.log("=== GLOBAL ERROR HANDLER ===");
+  console.log("Error object:", error);
+  console.log("Error message:", error.message);
+  console.log("Error statusCode:", statusCode);
+  console.log("Error status:", status);
+  console.log("Error type:", typeof statusCode);
+  console.log("===========================");
 
-  console.log("inside global")
-  console.log(error)
-  return res.status(error.statusCode).json({
-    status: error.statusCode,
-    message: error.message,
-    stackTrace: error.stack,
-    error: error,
-  });
+  // Ensure statusCode is a valid number
+  let validStatusCode = 500;
+  
+  if (typeof statusCode === 'number' && statusCode >= 100 && statusCode < 600) {
+    validStatusCode = statusCode;
+  } else {
+    console.log("Invalid status code detected, using 500");
+  }
+
+  // Don't send response if headers already sent
+  if (res.headersSent) {
+    console.log("Headers already sent, cannot send error response");
+    return;
+  }
+
+  try {
+    return res.status(validStatusCode).json({
+      success: false,
+      status: validStatusCode,
+      message: error.message || 'Something went wrong',
+      stackTrace: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      error: process.env.NODE_ENV === 'development' ? error : undefined,
+    });
+  } catch (responseError) {
+    console.error("Error sending error response:", responseError);
+    // Fallback to basic error response
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
 
   if (process.env.NODE_ENV === "X") {
     developmentError(error, res);
