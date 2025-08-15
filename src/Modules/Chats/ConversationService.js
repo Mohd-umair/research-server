@@ -88,6 +88,16 @@ const conversationService = {
     const { decodedUser } = data;
     const userId = decodedUser.id;
 
+    console.log('🔍 Getting conversations for user:', userId);
+
+    // Debug: Check available collections
+    try {
+      const collections = await model.db.listCollections().toArray();
+      console.log('🔍 Available collections:', collections.map(c => c.name));
+    } catch (error) {
+      console.log('⚠️ Could not list collections:', error.message);
+    }
+
     const pipeline = [
       {
         $match: {
@@ -196,6 +206,21 @@ const conversationService = {
     ];
 
     const conversations = await model.aggregatePipeline(pipeline);
+    
+    // Debug logging
+    console.log('🔍 Raw conversations from aggregation:', conversations);
+    conversations.forEach((conv, index) => {
+      console.log(`🔍 Conversation ${index + 1}:`, {
+        id: conv._id,
+        hasOtherParticipant: !!conv.otherParticipant,
+        otherParticipant: conv.otherParticipant,
+        otherParticipantDetails: conv.otherParticipant?.details,
+        teacherName: conv.otherParticipant?.details?.name,
+        teacherEmail: conv.otherParticipant?.details?.email,
+        userModel: conv.otherParticipant?.userModel
+      });
+    });
+    
     return conversations;
   }),
 
