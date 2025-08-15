@@ -28,6 +28,7 @@ const uploadRouter = require("./Upload/uploadRouter");
 const { eventRouter } = require("./Events/eventRouter");
 const { userRequestRouter } = require("./UserRequest/userRequestRouter");
 const razorpayPayoutRouter = require("./RazorpayPayout/razorpayPayoutRouter");
+const contactRouter = require("./Contact/contactRouter");
 
 // Import admin authentication routes
 const adminAuthRoutes = require("./Admin/routes/adminRoutes");
@@ -41,6 +42,7 @@ const withdrawalRouter = require("./Withdrawal/withdrawalRouter");
 // PUBLIC API ROUTES (no authentication required for specific endpoints)
 apiRouter.use("/teacherProfile", teacherProfileRouter);
 apiRouter.use("/payment", paymentRouter);
+apiRouter.use("/contact", contactRouter);
 
 // ADMIN AUTHENTICATION ROUTES (mounted at /api/admin)
 // These are handled separately from the main admin routes
@@ -68,6 +70,7 @@ adminRouter.use("/upload", uploadRouter);
 adminRouter.use("/events", verifyToken, eventRouter);
 adminRouter.use("/teacher-collaboration", verifyToken, teacherCollaborationRouter);
 adminRouter.use("/user-request", userRequestRouter);
+adminRouter.use("/contact", contactRouter);
 adminRouter.use("/earnings", earningsRouter);
 adminRouter.use("/razorpay", razorpayPayoutRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);

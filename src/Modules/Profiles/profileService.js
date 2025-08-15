@@ -2,6 +2,7 @@ const Profile = require("./profileModel");
 const DbService = require("../../Service/DbService");
 const serviceHandler = require("../../Utils/serviceHandler");
 const CustomError = require("../../Errors/CustomError");
+const { AUTH_ERRORS, VALIDATION_ERRORS } = require("../../Utils/errorMessages");
 const {
   hashPassword,
   comparePasswords,
@@ -53,17 +54,30 @@ const profileService = {
   }),
   signIn: serviceHandler(async (data) => {
     const { email, password } = data;
+    
+    // Validate inputs
+    if (!email || !password) {
+      throw new CustomError(AUTH_ERRORS.EMAIL_PASSWORD_REQUIRED, 400);
+    }
+    
     const filter = { email };
     const profile = await model.getDocument(filter);
 
     if (!profile) {
-      throw new CustomError(404, "Profile not found");
+      throw new CustomError("No admin account found with this email address.", 404);
     }
+    
+    // Check if account is active
+    if (profile.isDelete === true) {
+      throw new CustomError(AUTH_ERRORS.ACCOUNT_DELETED, 404);
+    }
+    
     const isPasswordMatch = await comparePasswords(password, profile.password);
 
     if (!isPasswordMatch) {
-      throw new CustomError(401, "Incorrect password");
+      throw new CustomError(AUTH_ERRORS.PASSWORD_INCORRECT, 401);
     }
+    
     const token = generateAdminToken(profile);
     return { token, profile };
   }),

@@ -77,7 +77,7 @@ const getAllConsultancies = async (req, res, next) => {
 const getConsultancyById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     console.log('=== GET CONSULTANCY BY ID ===');
     console.log('Requested ID:', id);
     console.log('ID type:', typeof id);

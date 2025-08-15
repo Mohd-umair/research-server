@@ -2,6 +2,7 @@ const Student = require("./studentModel");
 const DbService = require("../../Service/DbService");
 const serviceHandler = require("../../Utils/serviceHandler");
 const CustomError = require("../../Errors/CustomError");
+const { AUTH_ERRORS, VALIDATION_ERRORS } = require("../../Utils/errorMessages");
 const {
   hashPassword,
   comparePasswords,
@@ -14,34 +15,24 @@ const model = new DbService(Student);
 const studentService = {
   create: serviceHandler(async (data) => {
     const { email, password, ...userData } = data;
-    console.log("INIT STUDENT SIGNUP" , userData)
-    // Check if email and password are provided
     if (!email || !password) {
       throw new Error("Email and password are required");
     }
     const hashedPassword = await hashPassword(password);
-
-    // Save the student data to the database
-
     const savedData = await model.save({
       email,
       ...userData,
       password: hashedPassword,
     });
 
-const student ={
-  _id:savedData._id,
-  firstName:savedData.firstName,
-  userType:savedData.userType
+    const student = {
+      _id: savedData._id,
+      firstName: savedData.firstName,
+      userType: savedData.userType
 
-}
-    // Generate a token for email verification
+    }
     const token = generateToken(student)
-
-
-    // Send verification email
     await sendVerificationEmail(email, token);
-
     return { msg: "Student created Successfully", data: savedData, token };
   }),
 
@@ -83,88 +74,102 @@ const student ={
   }),
 
   signIn: serviceHandler(async (email, password) => {
-    const filter = { email };
+    // Validate inputs
+    if (!email || !password) {
+      throw new CustomError(AUTH_ERRORS.EMAIL_PASSWORD_REQUIRED, 400);
+    }
+
+    // Query should explicitly exclude deleted users
+    const filter = {
+      email,
+      isDelete: { $ne: true }  // Exclude documents where isDelete is true
+    };
     const student = await model.getDocument(filter);
 
     if (!student) {
-      throw new CustomError(404, "Student not found");
+      throw new CustomError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, 404);
     }
+
+    // Additional safety check for deleted accounts
+    if (student.isDelete === true) {
+      throw new CustomError(AUTH_ERRORS.ACCOUNT_DELETED, 404);
+    }
+
+    // Check if user is active
+    if (student.isActive === false) {
+      throw new CustomError(AUTH_ERRORS.ACCOUNT_DEACTIVATED, 403);
+    }
+
     const isPasswordMatch = await comparePasswords(password, student.password);
 
     if (!isPasswordMatch) {
-      throw new CustomError(401, "Incorrect password");
+      throw new CustomError(AUTH_ERRORS.PASSWORD_INCORRECT, 401);
     }
 
     const token = generateToken(student);
     student.password = "";
     return { user: student, token };
   }),
-  getUsersChattedWith: serviceHandler(async (userObj) => {}),
+  getUsersChattedWith: serviceHandler(async (userObj) => { }),
 
- verifyEmail: serviceHandler(async (decodedUser) => {
-   const { _id } = decodedUser;
+  verifyEmail: serviceHandler(async (decodedUser) => {
+    const { _id } = decodedUser;
+    const query = { _id };
+    const updateData = { emailVerified: true };
+    const options = { new: true };
+    const savedUser = await model.updateDocument(query, updateData, options);
 
-
-  const query = { _id };
-  const updateData = { emailVerified: true };
-
-  const options = { new: true };
-  const savedUser = await model.updateDocument(query, updateData, options);
-
-  if (!savedUser) {
-    throw new Error("User not found or could not be updated");
-  }
-  return savedUser;
-}),
+    if (!savedUser) {
+      throw new Error("User not found or could not be updated");
+    }
+    return savedUser;
+  }),
 
   // Profile-specific methods
   getCurrentProfile: serviceHandler(async (userId) => {
     const query = { _id: userId, isDelete: false };
     const student = await model.getDocument(query);
-    
+
     if (!student) {
       throw new CustomError(404, "Student profile not found");
     }
-    
+
     // Remove password from response
     const studentProfile = student.toObject();
     delete studentProfile.password;
-    
+
     // Add profile completion data
     studentProfile.completionPercentage = student.getProfileCompletionPercentage();
     studentProfile.missingFields = student.getMissingProfileFields();
-    
     return studentProfile;
   }),
 
   updateProfile: serviceHandler(async (userId, profileData) => {
     const query = { _id: userId, isDelete: false };
     const existingStudent = await model.getDocument(query);
-    
+
     if (!existingStudent) {
       throw new CustomError(404, "Student not found");
     }
 
     // Prepare update data (exclude email and password from profile updates)
     const { email, password, ...updateData } = profileData;
-    
     const updatedStudent = await model.updateDocument(
       query,
       { ...updateData, updatedAt: new Date() },
       { new: true }
     );
-    
+
     // Remove password from response
     const studentProfile = updatedStudent.toObject();
     delete studentProfile.password;
-    
     return studentProfile;
   }),
 
   uploadProfilePicture: serviceHandler(async (userId, profilePictureUrl) => {
     const query = { _id: userId, isDelete: false };
     const existingStudent = await model.getDocument(query);
-    
+
     if (!existingStudent) {
       throw new CustomError(404, "Student not found");
     }
@@ -174,18 +179,18 @@ const student ={
       { profilePicture: profilePictureUrl, updatedAt: new Date() },
       { new: true }
     );
-    
+
     // Remove password from response
     const studentProfile = updatedStudent.toObject();
     delete studentProfile.password;
-    
+
     return studentProfile;
   }),
 
   getProfileCompletionStatus: serviceHandler(async (userId) => {
     const query = { _id: userId, isDelete: false };
     const student = await model.getDocument(query);
-    
+
     if (!student) {
       throw new CustomError(404, "Student not found");
     }
@@ -206,7 +211,7 @@ const student ={
   // Search students by name, email, or college
   searchStudents: serviceHandler(async (searchQuery, queryParams = {}) => {
     const { skip = 0, limit = 10 } = queryParams;
-    
+
     let query = { isDelete: false };
 
     if (searchQuery) {
@@ -229,8 +234,8 @@ const student ={
       return studentObj;
     });
 
-    return { 
-      students: studentsWithoutPasswords, 
+    return {
+      students: studentsWithoutPasswords,
       totalCount,
       currentPage: Math.floor(skip / limit) + 1,
       totalPages: Math.ceil(totalCount / limit)

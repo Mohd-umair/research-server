@@ -2,6 +2,7 @@ const Teacher = require("./teacherModel.js");
 const DbService = require("../../Service/DbService.js");
 const serviceHandler = require("../../Utils/serviceHandler.js");
 const CustomError = require("../../Errors/CustomError.js");
+const { AUTH_ERRORS, VALIDATION_ERRORS } = require("../../Utils/errorMessages");
 const callRazorpayApi= require("../../Utils/razorpayHelper.js")
 const {
   hashPassword,
@@ -162,7 +163,7 @@ const teacherService = {
   signIn: serviceHandler(async (email, password) => {
   // Validate inputs
   if (!email || !password) {
-    throw new CustomError(400, "Email and password are required");
+    throw new CustomError(AUTH_ERRORS.EMAIL_PASSWORD_REQUIRED, 400);
   }
   
   // Use a separate secure query function for authentication
@@ -171,12 +172,17 @@ const teacherService = {
   // Verify teacher exists
   if (!teacher) {
     // Use generic message to prevent user enumeration
-    throw new CustomError(401, "Invalid credentials");
+    throw new CustomError(AUTH_ERRORS.INVALID_CREDENTIALS, 401);
   }
   
   // Verify account is active
   if (teacher.isDelete === true) {
-    throw new CustomError(403, "Account is no longer active");
+    throw new CustomError(AUTH_ERRORS.ACCOUNT_DELETED, 403);
+  }
+
+  // Check if account is approved (for teachers)
+  if (teacher.isApproved === false) {
+    throw new CustomError(AUTH_ERRORS.ACCOUNT_PENDING_APPROVAL, 403);
   }
 
   // Compare passwords using constant-time comparison
@@ -184,7 +190,7 @@ const teacherService = {
   
   if (!isPasswordMatch) {
     // Use same generic error message to prevent timing attacks
-    throw new CustomError(401, "Invalid credentials");
+    throw new CustomError(AUTH_ERRORS.INVALID_CREDENTIALS, 401);
   }
   
   // Generate JWT token with appropriate claims and expiration
