@@ -3,6 +3,7 @@ const TeacherService = require("./teacherService");
 const successResponse = require("../../Utils/apiResponse");
 const teachermiddleware = require("../../middlewares/validation/teachervalidationschema");
 const { validationResult } = require("express-validator");
+const CustomError = require("../../Errors/CustomError");
 
 const teacherCtrl = {
   create: [
@@ -192,7 +193,39 @@ const teacherCtrl = {
       data: user,
       
     });
-  })
+  }),
+
+  forgotPassword: asyncHandler(async (req, res, next) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      throw new CustomError(400, "Email is required");
+    }
+    
+    const result = await TeacherService.forgotPassword(email);
+    
+    return successResponse({
+      res,
+      data: null,
+      msg: result.message,
+    });
+  }),
+
+  resetPassword: asyncHandler(async (req, res, next) => {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      throw new CustomError(400, "Reset token and new password are required");
+    }
+    
+    const result = await TeacherService.resetPassword(token, newPassword);
+    
+    return successResponse({
+      res,
+      data: null,
+      msg: result.message,
+    });
+  }),
 };
 
 module.exports = teacherCtrl;

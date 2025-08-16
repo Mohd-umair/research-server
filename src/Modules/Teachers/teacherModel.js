@@ -73,6 +73,15 @@ const teacherSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Password reset fields
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

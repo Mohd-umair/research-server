@@ -13,8 +13,10 @@ router.post("/getAll" , teacherCtrl.getAll)
 router.post("/getById" , teacherCtrl.getById)
 router.post("/delete" , teacherCtrl.delete)
 router.post("/update" , teacherCtrl.update)
-router.post("/sigIn" , teacherCtrl.signIn)
+router.post("/signIn" , teacherCtrl.signIn)
 router.post("/isApproved",verifyToken,teacherCtrl.approvedTeacher)
+router.post("/forgot-password", teacherCtrl.forgotPassword);
+router.post("/reset-password", teacherCtrl.resetPassword);
 
 // Teacher conversation routes
 router.get("/conversations", verifyToken, conversationController.getUserConversations);
