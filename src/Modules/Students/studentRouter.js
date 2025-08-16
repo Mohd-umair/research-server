@@ -8,6 +8,8 @@ const router = require('express').Router();
 router.post("/create" , studentCtrl.create)
 router.post("/signIn" , studentCtrl.signIn)
 router.get("/verify", studentCtrl.verifyEmail);
+router.post("/forgot-password", studentCtrl.forgotPassword);
+router.post("/reset-password", studentCtrl.resetPassword);
 
 // Admin/General routes (may need admin verification in future)
 router.post("/getAll" , studentCtrl.getAll)

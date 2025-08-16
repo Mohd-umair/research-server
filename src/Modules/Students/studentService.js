@@ -10,6 +10,7 @@ const {
   verifyToken,
 } = require("../../Utils/utils");
 const { sendVerificationEmail } = require("../../Utils/mailer");
+const { sendPasswordResetEmail } = require("../../Utils/mailer");
 const model = new DbService(Student);
 
 const studentService = {
@@ -112,17 +113,84 @@ const studentService = {
   }),
   getUsersChattedWith: serviceHandler(async (userObj) => { }),
 
-  verifyEmail: serviceHandler(async (decodedUser) => {
-    const { _id } = decodedUser;
-    const query = { _id };
-    const updateData = { emailVerified: true };
-    const options = { new: true };
-    const savedUser = await model.updateDocument(query, updateData, options);
+  verifyEmail: serviceHandler(async (token) => {
+    const decoded = verifyToken(token);
+    const filter = { _id: decoded._id };
+    const updatePayload = { emailVerified: true };
+    const updatedDoc = await model.updateDocument(filter, updatePayload);
+    return updatedDoc;
+  }),
 
-    if (!savedUser) {
-      throw new Error("User not found or could not be updated");
+  // Forgot password - send reset email
+  forgotPassword: serviceHandler(async (email) => {
+    if (!email) {
+      throw new CustomError("Email is required.", 400);
     }
-    return savedUser;
+
+    const filter = { email: email.toLowerCase().trim(), isDelete: { $ne: true } };
+    const student = await model.getDocument(filter);
+
+    if (!student) {
+      // Return success even if email doesn't exist for security
+      return { message: "If an account with that email exists, a password reset link has been sent." };
+    }
+
+    // Generate reset token
+    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Save reset token
+    await model.updateDocument(
+      { _id: student._id },
+      { 
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetTokenExpires
+      }
+    );
+
+    // Send reset email
+    await sendPasswordResetEmail(email, resetToken, 'student');
+
+    return { message: "If an account with that email exists, a password reset link has been sent." };
+  }),
+
+  // Reset password with token
+  resetPassword: serviceHandler(async (token, newPassword) => {
+    if (!token || !newPassword) {
+      throw new CustomError("Reset token and new password are required.", 400);
+    }
+
+    if (newPassword.length < 6) {
+      throw new CustomError("Password must be at least 6 characters long.", 400);
+    }
+
+    // Find student with valid reset token
+    const filter = {
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+      isDelete: { $ne: true }
+    };
+    
+    const student = await model.getDocument(filter);
+
+    if (!student) {
+      throw new CustomError("Invalid or expired reset token.", 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password and clear reset token
+    await model.updateDocument(
+      { _id: student._id },
+      {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null
+      }
+    );
+
+    return { message: "Password has been reset successfully." };
   }),
 
   // Profile-specific methods

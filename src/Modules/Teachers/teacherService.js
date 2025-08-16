@@ -10,6 +10,7 @@ const {
   generateToken,
 } = require("../../Utils/utils.js");
 const bcrypt = require("bcryptjs");
+const { sendPasswordResetEmail } = require("../../Utils/mailer");
 
 const model = new DbService(Teacher);
 
@@ -234,3 +235,82 @@ async function getTeacherForAuthentication(email) {
     throw new CustomError(500, "Authentication service unavailable");
   }
 }
+
+// Add forget password functionality
+const teacherServiceWithReset = {
+  ...teacherService,
+  
+  // Forgot password - send reset email
+  forgotPassword: serviceHandler(async (email) => {
+    if (!email) {
+      throw new CustomError("Email is required.", 400);
+    }
+
+    const filter = { email: email.toLowerCase().trim(), isDelete: { $ne: true } };
+    const teacher = await model.getDocument(filter);
+
+    if (!teacher) {
+      // Return success even if email doesn't exist for security
+      return { message: "If an account with that email exists, a password reset link has been sent." };
+    }
+
+    // Generate reset token
+    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Save reset token
+    await model.updateDocument(
+      { _id: teacher._id },
+      { 
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetTokenExpires
+      }
+    );
+
+    // Send reset email
+    await sendPasswordResetEmail(email, resetToken, 'teacher');
+
+    return { message: "If an account with that email exists, a password reset link has been sent." };
+  }),
+
+  // Reset password with token
+  resetPassword: serviceHandler(async (token, newPassword) => {
+    if (!token || !newPassword) {
+      throw new CustomError("Reset token and new password are required.", 400);
+    }
+
+    if (newPassword.length < 6) {
+      throw new CustomError("Password must be at least 6 characters long.", 400);
+    }
+
+    // Find teacher with valid reset token
+    const filter = {
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+      isDelete: { $ne: true }
+    };
+    
+    const teacher = await model.getDocument(filter);
+
+    if (!teacher) {
+      throw new CustomError("Invalid or expired reset token.", 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password and clear reset token
+    await model.updateDocument(
+      { _id: teacher._id },
+      {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null
+      }
+    );
+
+    return { message: "Password has been reset successfully." };
+  }),
+};
+
+module.exports = teacherServiceWithReset;

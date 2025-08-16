@@ -268,6 +268,38 @@ const studentCtrl = {
       msg: "Students retrieved successfully",
     });
   }),
+
+  forgotPassword: asyncHandler(async (req, res, next) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      throw new CustomError(400, "Email is required");
+    }
+    
+    const result = await StudentService.forgotPassword(email);
+    
+    return successResponse({
+      res,
+      data: null,
+      msg: result.message,
+    });
+  }),
+
+  resetPassword: asyncHandler(async (req, res, next) => {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      throw new CustomError(400, "Reset token and new password are required");
+    }
+    
+    const result = await StudentService.resetPassword(token, newPassword);
+    
+    return successResponse({
+      res,
+      data: null,
+      msg: result.message,
+    });
+  }),
 };
 
 module.exports = studentCtrl;
