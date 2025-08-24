@@ -43,6 +43,7 @@ const withdrawalRouter = require("./Withdrawal/withdrawalRouter");
 apiRouter.use("/teacherProfile", teacherProfileRouter);
 apiRouter.use("/payment", paymentRouter);
 apiRouter.use("/contact", contactRouter);
+apiRouter.use("/collaboration", collaborationRequestRouter);
 
 // ADMIN AUTHENTICATION ROUTES (mounted at /api/admin)
 // These are handled separately from the main admin routes
@@ -73,6 +74,7 @@ adminRouter.use("/user-request", userRequestRouter);
 adminRouter.use("/contact", contactRouter);
 adminRouter.use("/earnings", earningsRouter);
 adminRouter.use("/razorpay", razorpayPayoutRouter);
+adminRouter.use("/collaboration", collaborationRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 

@@ -245,10 +245,21 @@ teacherProfileSchema.index({ "personalInfo.email": 1 });
 teacherProfileSchema.index({ profileStatus: 1 });
 teacherProfileSchema.index({ isActive: 1, isDeleted: 1 });
 
-// Pre-save middleware to calculate completion percentage
+// Pre-save middleware to calculate completion percentage and update status
 teacherProfileSchema.pre('save', function(next) {
   this.completionPercentage = this.calculateCompletionPercentage();
   this.isProfileComplete = this.completionPercentage === 100;
+  
+  // Auto-update profile status based on completion
+  if (this.completionPercentage === 100 && this.profileStatus === 'incomplete') {
+    this.profileStatus = 'pending';
+    this.submittedAt = new Date();
+  } else if (this.completionPercentage < 100 && this.profileStatus === 'pending') {
+    // If completion drops below 100%, revert to incomplete
+    this.profileStatus = 'incomplete';
+    this.submittedAt = undefined;
+  }
+  
   next();
 });
 
@@ -288,6 +299,24 @@ teacherProfileSchema.methods.calculateCompletionPercentage = function() {
   if (this.bankDetails.accountType) completedFields++;
 
   return Math.round((completedFields / totalFields) * 100);
+};
+
+// Method to update profile status based on completion
+teacherProfileSchema.methods.updateProfileStatus = function() {
+  this.completionPercentage = this.calculateCompletionPercentage();
+  this.isProfileComplete = this.completionPercentage === 100;
+  
+  // Auto-update profile status based on completion
+  if (this.completionPercentage === 100 && this.profileStatus === 'incomplete') {
+    this.profileStatus = 'pending';
+    this.submittedAt = new Date();
+  } else if (this.completionPercentage < 100 && this.profileStatus === 'pending') {
+    // If completion drops below 100%, revert to incomplete
+    this.profileStatus = 'incomplete';
+    this.submittedAt = undefined;
+  }
+  
+  return this;
 };
 
 const TeacherProfile = mongoose.model("TeacherProfile", teacherProfileSchema);

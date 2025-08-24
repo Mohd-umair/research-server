@@ -14,6 +14,24 @@ const CollaborationSchema = new mongoose.Schema(
       required: true,
       default: "USER"
     },
+    // Approval status
+    isApproved: {
+      type: Boolean,
+      default: false,
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      default: null,
+    },
     isDelete: {
       type: Boolean,
       default: false,
@@ -21,6 +39,12 @@ const CollaborationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Indexes for better query performance
+CollaborationSchema.index({ createdBy: 1 });
+CollaborationSchema.index({ isApproved: 1 });
+CollaborationSchema.index({ isDelete: 1 });
+CollaborationSchema.index({ userType: 1 });
 
 const Collaboration = mongoose.model("Collaboration", CollaborationSchema);
 module.exports = Collaboration;

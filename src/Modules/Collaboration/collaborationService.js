@@ -63,6 +63,82 @@ const collaborationService = {
     };
     return await model.getAllDocuments(searchCondition);
   },
+
+  // Admin methods
+  getAllCollaborationsForAdmin: async (data) => {
+    const { page = 1, limit = 10, search, isApproved, userType } = data;
+    const skip = (page - 1) * limit;
+    
+    let query = { isDelete: false };
+    
+    // Add filters
+    if (isApproved !== undefined) {
+      query.isApproved = isApproved;
+    }
+    if (userType) {
+      query.userType = userType;
+    }
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const savedData = await model.getAllDocuments(query, { skip, limit });
+    const totalCount = await model.totalCounts(query);
+
+    return { savedData, totalCount, currentPage: page, totalPages: Math.ceil(totalCount / limit) };
+  },
+
+  getCollaborationByIdForAdmin: async (collaborationId) => {
+    return await model.getDocumentById({ _id: collaborationId, isDelete: false });
+  },
+
+  approveCollaboration: async (collaborationId, adminId) => {
+    return await model.updateDocument(
+      { _id: collaborationId },
+      { 
+        isApproved: true, 
+        approvedAt: new Date(),
+        approvedBy: adminId,
+        rejectionReason: null
+      },
+      { new: true }
+    );
+  },
+
+  rejectCollaboration: async (collaborationId, adminId, rejectionReason) => {
+    return await model.updateDocument(
+      { _id: collaborationId },
+      { 
+        isApproved: false, 
+        approvedAt: null,
+        approvedBy: null,
+        rejectionReason: rejectionReason
+      },
+      { new: true }
+    );
+  },
+
+  getApprovedCollaborations: async (data) => {
+    const { page = 1, limit = 10, search } = data;
+    const skip = (page - 1) * limit;
+    
+    let query = { isDelete: false, isApproved: true };
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const savedData = await model.getAllDocuments(query, { skip, limit });
+    const totalCount = await model.totalCounts(query);
+
+    return { savedData, totalCount, currentPage: page, totalPages: Math.ceil(totalCount / limit) };
+  },
 };
 
 module.exports = collaborationService;

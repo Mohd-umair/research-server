@@ -33,6 +33,10 @@ router.post("/admin/approve", verifyToken, teacherProfileCtrl.approveProfile);
 router.post("/admin/reject", verifyToken, teacherProfileCtrl.rejectProfile);
 router.get("/admin/statistics", verifyToken, teacherProfileCtrl.getProfileStatistics);
 
+// Fix profile status routes
+router.post("/me/fix-status", verifyToken, teacherProfileCtrl.fixProfileStatus);
+router.post("/admin/fix-all-statuses", verifyToken, teacherProfileCtrl.fixAllProfileStatuses);
+
 const teacherProfileRouter = router;
 
 module.exports = { teacherProfileRouter }; 
