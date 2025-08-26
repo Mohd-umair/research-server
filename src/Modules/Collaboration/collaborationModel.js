@@ -5,8 +5,13 @@ const CollaborationSchema = new mongoose.Schema(
     description: { type: String, required: true },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
+      refPath: 'createdByModel',
       required: true,
+    },
+    createdByModel: {
+      type: String,
+      required: true,
+      enum: ['Student', 'Teacher']
     },
     userType: {
       type: String,

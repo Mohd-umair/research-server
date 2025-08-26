@@ -12,7 +12,16 @@ const conversationController = {
    */
   initiateConversation: async (req, res) => {
     try {
-      const { teacherId, consultancyId, consultancyTitle } = req.body;
+      const { 
+        teacherId, 
+        consultancyId, 
+        consultancyTitle,
+        collaborationId,
+        collaborationTitle,
+        creatorId,
+        creatorName,
+        chatType = "general"
+      } = req.body;
       const decodedUser = req.user || req.decodedUser; // From JWT middleware
       
       // Validation
@@ -34,6 +43,11 @@ const conversationController = {
         teacherId,
         consultancyId,
         consultancyTitle,
+        collaborationId,
+        collaborationTitle,
+        creatorId,
+        creatorName,
+        chatType,
         decodedUser
       });
       
@@ -386,6 +400,40 @@ const conversationController = {
     } catch (error) {
       console.error("Error deleting conversation:", error);
       return res.status(500).json({ msg: error.message || "Failed to delete conversation" });
+    }
+  },
+
+  /**
+   * GET /api/conversations/:conversationId/context
+   * Get conversation context information
+   */
+  getConversationContext: async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const decodedUser = req.user || req.decodedUser;
+      
+      if (!decodedUser || !decodedUser.id) {
+        return res.status(401).json({ msg: "Authentication required" });
+      }
+      
+      if (!conversationId) {
+        return res.status(400).json({ msg: "Conversation ID is required" });
+      }
+      
+      const context = await conversationService.getConversationContext({
+        conversationId,
+        decodedUser
+      });
+      
+      return successResponse({
+        res,
+        msg: "Conversation context fetched successfully",
+        data: context
+      });
+      
+    } catch (error) {
+      console.error("Error fetching conversation context:", error);
+      return res.status(500).json({ msg: error.message || "Failed to fetch conversation context" });
     }
   }
 };

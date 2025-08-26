@@ -23,5 +23,6 @@ collaborationRequestRouter.post("/admin/approved", verifyToken, collaborationReq
 
 // Public routes (no authentication required)
 collaborationRequestRouter.post("/public/approved", collaborationRequestCtrl.getPublicApprovedCollaborations);
+collaborationRequestRouter.post("/public/getById", collaborationRequestCtrl.getPublicCollaborationById);
 
 module.exports = { collaborationRequestRouter };

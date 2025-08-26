@@ -1,6 +1,5 @@
 const successResponse = require("../../Utils/apiResponse");
 const asyncHandler = require("../../Utils/asyncHandler");
-const teacherCollaborationService = require("./teacherCollaborationService");
 const collaborationService = require("./collaborationService");
 const CustomError = require("../../Errors/CustomError"); // Ensure you import CustomError
 const collaborationValidationSchema = require("../../middlewares/validation/colaborationvalidationschema");
@@ -25,7 +24,19 @@ const collaborationRequestCtrl = {
           docDTO.userType = 'USER';
         }
         
-        const newCollaboration = await teacherCollaborationService.createTeacherCollaboration(
+        // Set createdByModel based on userType
+        if (docDTO.userType === 'USER') {
+          docDTO.createdByModel = 'Student';
+        } else if (docDTO.userType === 'TEACHER') {
+          docDTO.createdByModel = 'Teacher';
+        }
+        
+        // Set createdBy from the authenticated user if not provided
+        if (!docDTO.createdBy && req.body.decodedUser) {
+          docDTO.createdBy = req.body.decodedUser._id;
+        }
+        
+        const newCollaboration = await collaborationService.createCollaboration(
           docDTO
         );
         return successResponse({
@@ -67,7 +78,7 @@ const collaborationRequestCtrl = {
       // Override createdBy to ensure we only get data for the logged-in user
       queryParams.createdBy = loggedInUserId;
       
-      const result = await teacherCollaborationService.getAllTeacherCollaborations(queryParams);
+      const result = await collaborationService.getAllCollaborations(queryParams);
 
       return successResponse({
         res,
@@ -89,7 +100,7 @@ const collaborationRequestCtrl = {
 
   getById: asyncHandler(async (req, res, next) => {
     const { paperId } = req.body;
-    const collaboration = await teacherCollaborationService.getTeacherCollaborationById(
+    const collaboration = await collaborationService.getCollaborationById(
       paperId
     );
 
@@ -113,7 +124,7 @@ const collaborationRequestCtrl = {
         throw new CustomError(400, "Collaboration ID is required");
       }
 
-      const updatedCollaboration = await teacherCollaborationService.updateTeacherCollaboration(
+      const updatedCollaboration = await collaborationService.updateCollaboration(
         _id,
         updateData
       );
@@ -131,15 +142,13 @@ const collaborationRequestCtrl = {
   delete: asyncHandler(async (req, res, next) => {
     const { paperId } = req.body;
 
-    const collaboration = await teacherCollaborationService.getTeacherCollaborationById(
-      paperId
-    );
+    const collaboration = await collaborationService.getCollaborationById(paperId);
 
     if (!collaboration) {
       throw new CustomError(404, "Collaboration not found");
     }
 
-    await teacherCollaborationService.deleteTeacherCollaboration(paperId);
+    await collaborationService.deleteCollaboration(paperId);
 
     successResponse({
       res,
@@ -149,7 +158,7 @@ const collaborationRequestCtrl = {
 
   search: asyncHandler(async (req, res, next) => {
     const { query } = req.body;
-    const results = await teacherCollaborationService.searchTeacherCollaborations(query);
+    const results = await collaborationService.searchCollaborations(query);
     successResponse({
       res,
       data: results,
@@ -159,7 +168,7 @@ const collaborationRequestCtrl = {
 
   getByStudentId: asyncHandler(async (req, res, next) => {
     const { studentId } = req.body;
-    const collaborations = await teacherCollaborationService.getCollaborationsByTeacherId(studentId);
+    const collaborations = await collaborationService.getCollaborationsByStudentId(studentId);
     successResponse({
       res,
       data: collaborations,
@@ -265,6 +274,32 @@ const collaborationRequestCtrl = {
         hasPrevPage: result.currentPage > 1
       },
       msg: "Approved collaborations fetched successfully",
+    });
+  }),
+
+  // Public method to get collaboration by ID (no authentication required)
+  getPublicCollaborationById: asyncHandler(async (req, res, next) => {
+    const { collaborationId } = req.body;
+    
+    if (!collaborationId) {
+      throw new CustomError(400, "Collaboration ID is required");
+    }
+
+    const collaboration = await collaborationService.getCollaborationByIdForAdmin(collaborationId);
+
+    if (!collaboration) {
+      throw new CustomError(404, "Collaboration not found");
+    }
+
+    // Only return approved collaborations for public access
+    if (!collaboration.isApproved) {
+      throw new CustomError(404, "Collaboration not found");
+    }
+
+    return successResponse({
+      res,
+      data: collaboration,
+      msg: "Collaboration details fetched successfully",
     });
   }),
 };
