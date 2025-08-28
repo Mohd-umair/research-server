@@ -29,6 +29,8 @@ const { eventRouter } = require("./Events/eventRouter");
 const { userRequestRouter } = require("./UserRequest/userRequestRouter");
 const razorpayPayoutRouter = require("./RazorpayPayout/razorpayPayoutRouter");
 const contactRouter = require("./Contact/contactRouter");
+const coinRouter = require("./Coins/coinRoutes");
+const adminCoinRouter = require("./Coins/adminCoinRoutes");
 
 // Import admin authentication routes
 const adminAuthRoutes = require("./Admin/routes/adminRoutes");
@@ -75,6 +77,7 @@ adminRouter.use("/contact", contactRouter);
 adminRouter.use("/earnings", earningsRouter);
 adminRouter.use("/razorpay", razorpayPayoutRouter);
 adminRouter.use("/collaboration", collaborationRequestRouter);
+adminRouter.use("/coins", adminCoinRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 
 
@@ -98,6 +101,7 @@ userRouter.use("/webinarEnrollment",verifyToken, webinarEnrollmentRouter);
 userRouter.use("/payment",paymentRouter)
 userRouter.use("/user-request", userRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
+userRouter.use("/coins", coinRouter);
 userRouter.use("/earnings", earningsRouter);
 userRouter.use("/razorpay", razorpayPayoutRouter);
 apiRouter.use("/conversations", conversationRouter);
