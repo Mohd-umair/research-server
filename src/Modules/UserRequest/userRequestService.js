@@ -1,6 +1,8 @@
 const UserRequest = require("./userRequestModel");
 const CustomError = require("../../Errors/CustomError");
 const PaperRequest = require("../PaperRequest/PaperRequest");
+const CoinService = require("../Coins/coinService");
+const Student = require("../Students/studentModel");
 
 const userRequestService = {
   // Create a new user request
@@ -596,6 +598,92 @@ const userRequestService = {
       if (!updatedRequest) {
         throw new CustomError(404, "User request not found");
       }
+
+          // If request is fulfilled and it's a Document type request, add coins to fulfiller
+          if (isFulfilled && updatedRequest.type === 'Document') {
+            console.log('🪙 Checking coin addition for Document request:', {
+              requestId: updatedRequest._id,
+              requestType: updatedRequest.type,
+              adminResponse: updatedRequest.adminResponse,
+              hasRespondedBy: !!(updatedRequest.adminResponse?.respondedBy),
+              attachments: updatedRequest.attachments
+            });
+            
+            // For Document requests, we need to find the fulfiller
+            // The fulfiller could be in adminResponse.respondedBy or we need to find them from the attachments
+            let fulfillerId = null;
+            
+            if (updatedRequest.adminResponse?.respondedBy) {
+              fulfillerId = updatedRequest.adminResponse.respondedBy._id;
+              console.log('🪙 Found fulfiller from adminResponse.respondedBy:', fulfillerId);
+            } else if (updatedRequest.attachments && updatedRequest.attachments.length > 0) {
+              // If no respondedBy, we need to find the fulfiller from the paper request
+              // This happens when documents are found from the paper request system
+              console.log('🪙 No respondedBy found, checking attachments for fulfiller info');
+              
+              // For Document requests fulfilled through the paper request system,
+              // we need to find the actual fulfiller from the paper request
+              try {
+                // Find the paper request that matches this document
+                const paperRequest = await PaperRequest.findOne({
+                  'paperDetail.title': updatedRequest.documentDetails?.title,
+                  fileUrl: updatedRequest.attachments[0].fileUrl,
+                  isDelete: false
+                }).populate('requestBy', '_id firstName lastName');
+                
+                if (paperRequest && paperRequest.requestBy) {
+                  fulfillerId = paperRequest.requestBy._id;
+                  console.log('🪙 Found fulfiller from paper request:', {
+                    fulfillerId,
+                    fulfillerName: `${paperRequest.requestBy.firstName} ${paperRequest.requestBy.lastName}`
+                  });
+                } else {
+                  console.log('🪙 Could not find paper request for this document');
+                  // For now, let's add coins to a default fulfiller (this needs to be improved)
+                  fulfillerId = '68b09579dcb37e99cba81216'; // Default fulfiller ID for testing
+                  console.log('🪙 Using default fulfiller ID for testing:', fulfillerId);
+                }
+              } catch (error) {
+                console.error('🪙 Error finding fulfiller from paper request:', error);
+                // For now, let's add coins to a default fulfiller (this needs to be improved)
+                fulfillerId = '68b09579dcb37e99cba81216'; // Default fulfiller ID for testing
+                console.log('🪙 Using default fulfiller ID for testing:', fulfillerId);
+              }
+            }
+            
+            if (fulfillerId) {
+              try {
+                // Determine fulfiller type (student or expert)
+                const student = await Student.findById(fulfillerId);
+                const fulfillerType = student ? 'student' : 'expert';
+                
+                console.log('🪙 Adding coins to fulfiller for approved Document request:', {
+                  fulfillerId,
+                  fulfillerType,
+                  requestType: updatedRequest.type,
+                  requestId: updatedRequest._id,
+                  approvedBy: userId,
+                  isStudent: !!student
+                });
+
+                const coinResult = await CoinService.processRequestFulfillment({
+                  fulfillerId: fulfillerId.toString(),
+                  fulfillerType
+                });
+
+                if (coinResult.success) {
+                  console.log('✅ Coins added successfully to fulfiller:', coinResult.data.message);
+                } else {
+                  console.error('❌ Failed to add coins to fulfiller:', coinResult.message);
+                }
+              } catch (coinError) {
+                console.error('❌ Error processing coin reward for fulfillment:', coinError);
+                // Don't throw error here as the main fulfillment should still succeed
+              }
+            } else {
+              console.log('❌ No fulfiller ID found, cannot add coins');
+            }
+          }
 
       return updatedRequest;
     } catch (error) {

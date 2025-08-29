@@ -214,6 +214,10 @@ const paperRequestService = {
         }
       );
 
+      // Note: Coins will be added when the request creator approves the fulfillment
+      // This prevents users from gaining coins just by uploading documents
+      console.log('📝 Document uploaded successfully. Coins will be added when request creator approves.');
+
       // Send email notification to the user
       if (originalRequest.requestBy && originalRequest.requestBy.email) {
         try {

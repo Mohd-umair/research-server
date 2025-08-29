@@ -20,6 +20,34 @@ const conversationSchema = new mongoose.Schema(
       }
     }],
     
+    // Chat type to track the primary context (most recent)
+    chatType: {
+      type: String,
+      enum: ["consultancy", "collaboration", "general"],
+      default: "general"
+    },
+    
+    // Track all contexts this conversation has been used for
+    contexts: [{
+      type: {
+        type: String,
+        enum: ["consultancy", "collaboration"],
+        required: true
+      },
+      contextId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true
+      },
+      title: {
+        type: String,
+        required: true
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    
     // Chat context for consultancy inquiries
     consultancyContext: {
       consultancyId: {
@@ -34,6 +62,27 @@ const conversationSchema = new mongoose.Schema(
       isPrePurchase: {
         type: Boolean,
         default: true
+      }
+    },
+    
+    // Chat context for collaboration inquiries
+    collaborationContext: {
+      collaborationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Collaboration',
+        default: null
+      },
+      collaborationTitle: {
+        type: String,
+        default: null
+      },
+      creatorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null
+      },
+      creatorName: {
+        type: String,
+        default: null
       }
     },
     
@@ -86,6 +135,9 @@ const conversationSchema = new mongoose.Schema(
 // Index for efficient queries
 conversationSchema.index({ 'participants.user': 1 });
 conversationSchema.index({ 'consultancyContext.consultancyId': 1 });
+conversationSchema.index({ 'collaborationContext.collaborationId': 1 });
+conversationSchema.index({ chatType: 1 });
+conversationSchema.index({ 'contexts.contextId': 1 });
 conversationSchema.index({ status: 1, isDelete: 1 });
 
 // Method to get the other participant

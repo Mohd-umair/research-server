@@ -78,4 +78,11 @@ router.put("/:conversationId/archive", verifyToken, conversationController.archi
  */
 router.delete("/:conversationId", verifyToken, conversationController.deleteConversation);
 
+/**
+ * @route   GET /api/conversations/:conversationId/context
+ * @desc    Get conversation context information
+ * @access  Private
+ */
+router.get("/:conversationId/context", verifyToken, conversationController.getConversationContext);
+
 module.exports = router; 

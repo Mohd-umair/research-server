@@ -14,4 +14,15 @@ collaborationRequestRouter.post(
   collaborationRequestCtrl.getByStudentId
 );
 
+// Admin routes
+collaborationRequestRouter.post("/admin/all", verifyToken, collaborationRequestCtrl.getAllForAdmin);
+collaborationRequestRouter.post("/admin/getById", verifyToken, collaborationRequestCtrl.getByIdForAdmin);
+collaborationRequestRouter.post("/admin/approve", verifyToken, collaborationRequestCtrl.approveCollaboration);
+collaborationRequestRouter.post("/admin/reject", verifyToken, collaborationRequestCtrl.rejectCollaboration);
+collaborationRequestRouter.post("/admin/approved", verifyToken, collaborationRequestCtrl.getApprovedCollaborations);
+
+// Public routes (no authentication required)
+collaborationRequestRouter.post("/public/approved", collaborationRequestCtrl.getPublicApprovedCollaborations);
+collaborationRequestRouter.post("/public/getById", collaborationRequestCtrl.getPublicCollaborationById);
+
 module.exports = { collaborationRequestRouter };

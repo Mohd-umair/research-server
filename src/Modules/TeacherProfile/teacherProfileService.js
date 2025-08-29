@@ -379,8 +379,46 @@ const teacherProfileService = {
       'Teaching', 'Research', 'Communication', 'Problem Solving',
       'Critical Thinking', 'Project Management'
     ];
-  })
+  }),
 
+  // Fix profile status for existing profiles
+  fixProfileStatus: serviceHandler(async (userId) => {
+    const profile = await model.getDocument({ 
+      userId: userId, 
+      isDeleted: false 
+    });
+
+    if (!profile) {
+      throw new CustomError(404, "Profile not found");
+    }
+
+    // Update the profile status based on completion
+    profile.updateProfileStatus();
+    await profile.save();
+
+    return profile;
+  }),
+
+  // Fix all profiles with incorrect status
+  fixAllProfileStatuses: serviceHandler(async () => {
+    const profiles = await model.getAllDocuments({ isDeleted: false });
+    let fixedCount = 0;
+
+    for (const profile of profiles) {
+      const oldStatus = profile.profileStatus;
+      profile.updateProfileStatus();
+      
+      if (profile.profileStatus !== oldStatus) {
+        await profile.save();
+        fixedCount++;
+      }
+    }
+
+    return {
+      message: `Fixed ${fixedCount} profiles with incorrect status`,
+      fixedCount
+    };
+  })
 };
 
 module.exports = teacherProfileService; 

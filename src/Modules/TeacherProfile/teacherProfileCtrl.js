@@ -103,6 +103,29 @@ const teacherProfileCtrl = {
     });
   }),
 
+  // Fix profile status for current user
+  fixProfileStatus: asyncHandler(async (req, res, next) => {
+    const userId = req.decodedUser._id;
+    const profile = await TeacherProfileService.fixProfileStatus(userId);
+    
+    return successResponse({
+      res,
+      data: profile,
+      msg: "Profile status fixed successfully",
+    });
+  }),
+
+  // Admin: Fix all profile statuses
+  fixAllProfileStatuses: asyncHandler(async (req, res, next) => {
+    const result = await TeacherProfileService.fixAllProfileStatuses();
+    
+    return successResponse({
+      res,
+      data: result,
+      msg: result.message,
+    });
+  }),
+
   // Delete current user's profile
   deleteCurrentProfile: asyncHandler(async (req, res, next) => {
     const userId = req.decodedUser._id;
