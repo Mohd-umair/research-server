@@ -65,21 +65,27 @@ const userRequestValidationRules = () => {
       .notEmpty()
       .withMessage('Data description is required for data requests'),
     
-    // Optional fields with length constraints
+    // Title and description - required for Lab, optional for others
     body('title')
-      .optional()
-      .isLength({ min: 3, max: 200 })
-      .withMessage('Title must be between 3 and 200 characters'),
+      .if(body('type').equals('Lab'))
+      .notEmpty()
+      .withMessage('Title is required for lab requests')
+      .if(body('type').not().equals('Lab'))
+      .optional(),
     
     body('description')
-      .optional()
-      .isLength({ min: 10, max: 1000 })
-      .withMessage('Description must be between 10 and 1000 characters'),
+      .if(body('type').equals('Lab'))
+      .notEmpty()
+      .withMessage('Description is required for lab requests')
+      .if(body('type').not().equals('Lab'))
+      .optional(),
     
     body('priority')
-      .optional()
+      .if(body('type').equals('Lab'))
       .isIn(['Low', 'Medium', 'High'])
-      .withMessage('Priority must be one of: Low, Medium, High'),
+      .withMessage('Priority must be one of: Low, Medium, High')
+      .if(body('type').not().equals('Lab'))
+      .optional(),
     
     // Additional field validations
     body('labAdditionalInfo')
