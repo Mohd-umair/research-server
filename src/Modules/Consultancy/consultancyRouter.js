@@ -16,4 +16,6 @@ consultancyRouter.get("/bookings/:studentId", verifyToken, consultancyCtrl.getUs
 consultancyRouter.get("/expert-bookings/:teacherId", verifyToken, consultancyCtrl.getExpertBookings);
 consultancyRouter.put("/accept/:consultancyId", verifyToken, consultancyCtrl.acceptConsultancy);
 consultancyRouter.put("/reject/:consultancyId", verifyToken, consultancyCtrl.rejectConsultancy);
+consultancyRouter.post("/request-payment", verifyToken, consultancyCtrl.requestPayment);
+consultancyRouter.put("/complete-session/:bookingId", verifyToken, consultancyCtrl.completeSession);
 module.exports = consultancyRouter;

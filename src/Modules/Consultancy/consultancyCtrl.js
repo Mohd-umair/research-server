@@ -204,6 +204,51 @@ const consultancyCtrl = {
       msg: result.message
     });
   }),
+
+  requestPayment: asyncHandler(async (req, res, next) => {
+    const { consultancyId, amount, consultancyTitle, studentName } = req.body;
+    const decodedUser = req.decodedUser;
+    
+    console.log('Request payment endpoint hit for consultancy:', consultancyId, 'by user:', decodedUser._id);
+    
+    if (!consultancyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Consultancy ID is required"
+      });
+    }
+
+    const result = await consultancyService.requestPayment({ 
+      consultancyId, 
+      amount,
+      consultancyTitle,
+      studentName,
+      decodedUser 
+    });
+    console.log('Request payment result:', result);
+    
+    return successResponse({ 
+      res: res, 
+      data: result.paymentRequest,
+      msg: result.message
+    });
+  }),
+
+  completeSession: asyncHandler(async (req, res, next) => {
+    const { bookingId } = req.params;
+    const decodedUser = req.decodedUser;
+    
+    console.log('Complete session endpoint hit for booking:', bookingId, 'by user:', decodedUser._id);
+    
+    const result = await consultancyService.completeSession(bookingId, decodedUser);
+    console.log('Complete session result:', result);
+    
+    return successResponse({ 
+      res: res, 
+      data: result.booking,
+      msg: result.message
+    });
+  }),
 };
 
 module.exports = consultancyCtrl;

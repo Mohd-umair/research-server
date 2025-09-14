@@ -21,14 +21,17 @@ console.log("Razorpay Payout Service: Razorpay instance created:", {
   availableMethods: Object.keys(razorpayInstance)
 });
 
-// Check if Razorpay SDK is properly loaded
-const isRazorpayAvailable = razorpayInstance && 
-  typeof razorpayInstance.contacts === 'object' && 
-  typeof razorpayInstance.fundAccounts === 'object';
+// Check if Razorpay SDK methods are actually available
+const hasContactsCreate = razorpayInstance.contacts && typeof razorpayInstance.contacts.create === 'function';
+const hasFundAccountsCreate = razorpayInstance.fundAccounts && typeof razorpayInstance.fundAccounts.create === 'function';
+const hasPayoutsCreate = razorpayInstance.payouts && typeof razorpayInstance.payouts.create === 'function';
 
-if (!isRazorpayAvailable) {
-  console.warn("Razorpay Payout Service: Razorpay SDK not properly initialized. Using format validation only.");
-}
+
+
+// For now, always use API fallback since the current SDK version doesn't support payout methods
+const isRazorpayAvailable = false;
+
+console.log("Razorpay Payout Service: Using API fallback for all payout operations (SDK payout methods not available in this version).");
 
 const razorpayPayoutService = {
   /**
@@ -38,11 +41,6 @@ const razorpayPayoutService = {
     console.log("Razorpay Payout Service: Creating contact");
     try {
       const { name, email, contact, type, reference_id, notes } = data;
-
-      // Check if Razorpay is available
-      if (!isRazorpayAvailable) {
-        throw new Error("Razorpay SDK not available. Cannot create contact.");
-      }
 
       const contactData = {
         name: name,
@@ -55,7 +53,31 @@ const razorpayPayoutService = {
 
       console.log("Razorpay Payout Service: Contact data:", contactData);
 
-      const razorpayContact = await razorpayInstance.contacts.create(contactData);
+      // Check if Razorpay SDK is available, otherwise use API fallback
+      let razorpayContact;
+      if (!isRazorpayAvailable) {
+        console.warn("Razorpay Payout Service: SDK not available, using API fallback for contact creation");
+        // Use direct API call as fallback
+        const axios = require('axios');
+        const auth = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_SECRET}`).toString('base64');
+        
+        try {
+          const response = await axios.post('https://api.razorpay.com/v1/contacts', contactData, {
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          razorpayContact = response.data;
+          console.log("Razorpay Payout Service: Contact created via API:", razorpayContact.id);
+        } catch (apiError) {
+          console.error("Razorpay Payout Service: API contact creation failed:", apiError.response?.data || apiError.message);
+          throw new Error(`Failed to create contact via API: ${apiError.response?.data?.error?.description || apiError.message}`);
+        }
+      } else {
+        razorpayContact = await razorpayInstance.contacts.create(contactData);
+      }
       
       if (!razorpayContact || !razorpayContact.id) {
         throw new Error("Failed to create Razorpay contact - invalid response");
@@ -85,11 +107,6 @@ const razorpayPayoutService = {
     try {
       const { contact_id, account_type, bank_account, vpa, card } = data;
 
-      // Check if Razorpay is available
-      if (!isRazorpayAvailable) {
-        throw new Error("Razorpay SDK not available. Cannot create fund account.");
-      }
-
       const fundAccountData = {
         contact_id: contact_id,
         account_type: account_type,
@@ -100,7 +117,31 @@ const razorpayPayoutService = {
 
       console.log("Razorpay Payout Service: Fund account data:", fundAccountData);
 
-      const razorpayFundAccount = await razorpayInstance.fundAccounts.create(fundAccountData);
+      // Check if Razorpay SDK is available, otherwise use API fallback
+      let razorpayFundAccount;
+      if (!isRazorpayAvailable) {
+        console.warn("Razorpay Payout Service: SDK not available, using API fallback for fund account creation");
+        // Use direct API call as fallback
+        const axios = require('axios');
+        const auth = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_SECRET}`).toString('base64');
+        
+        try {
+          const response = await axios.post('https://api.razorpay.com/v1/fund_accounts', fundAccountData, {
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          razorpayFundAccount = response.data;
+          console.log("Razorpay Payout Service: Fund account created via API:", razorpayFundAccount.id);
+        } catch (apiError) {
+          console.error("Razorpay Payout Service: API fund account creation failed:", apiError.response?.data || apiError.message);
+          throw new Error(`Failed to create fund account via API: ${apiError.response?.data?.error?.description || apiError.message}`);
+        }
+      } else {
+        razorpayFundAccount = await razorpayInstance.fundAccounts.create(fundAccountData);
+      }
       
       if (!razorpayFundAccount || !razorpayFundAccount.id) {
         throw new Error("Failed to create Razorpay fund account - invalid response");
@@ -131,16 +172,8 @@ const razorpayPayoutService = {
     try {
       const { contact, fundAccount, userId } = data;
 
-      // Check if Razorpay is available
-      if (!isRazorpayAvailable) {
-        console.warn("Razorpay Payout Service: Razorpay SDK not available. Skipping payout profile creation.");
-        return {
-          contactId: null,
-          fundAccountId: null,
-          isActive: false,
-          message: "Payout profile creation skipped - Razorpay SDK not available"
-        };
-      }
+      // Note: We now use API fallback, so we don't skip payout profile creation
+      console.log("Razorpay Payout Service: Proceeding with payout profile creation using API fallback");
 
       // Step 1: Create contact
       console.log("Razorpay Payout Service: Step 1 - Creating contact");
@@ -165,31 +198,72 @@ const razorpayPayoutService = {
 
       // Step 3: Update user profile with Razorpay IDs
       console.log("Razorpay Payout Service: Step 3 - Updating user profile");
+      console.log("Razorpay Payout Service: User ID to update:", userId);
+      
       const updateData = {
         contactId: contactResult.contactId,
         fundId: fundAccountResult.fundAccountId,
         razorPayID: fundAccountResult.fundAccountId, // For backward compatibility
         isBankActive: true
       };
+      
+      console.log("Razorpay Payout Service: Update data:", updateData);
 
-      const updatedProfile = await teacherModel.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true }
-      );
-
-      if (!updatedProfile) {
-        throw new Error("Failed to update user profile with Razorpay IDs");
+      // First try to find TeacherProfile
+      const TeacherProfileModel = require("../TeacherProfile/teacherProfileModel");
+      const teacherProfile = await TeacherProfileModel.findOne({ userId: userId });
+      console.log("Razorpay Payout Service: Existing teacher profile found:", !!teacherProfile);
+      
+      if (teacherProfile) {
+        // Update the TeacherProfile with Razorpay payout info
+        teacherProfile.razorpayPayout = {
+          contactId: contactResult.contactId,
+          fundId: fundAccountResult.fundAccountId,
+          isBankActive: true,
+          setupCompleted: true,
+          lastUpdated: new Date()
+        };
+        
+        const updatedProfile = await teacherProfile.save();
+        console.log("Razorpay Payout Service: Teacher profile updated successfully");
+        
+        return {
+          contactId: contactResult.contactId,
+          fundAccountId: fundAccountResult.fundAccountId,
+          isActive: true,
+          profile: updatedProfile
+        };
+      } else {
+        // Try with Teacher model as fallback (for old profiles)
+        const TeacherModel = require("../Teachers/teacherModel");
+        console.log("Razorpay Payout Service: Trying Teacher model as fallback");
+        
+        const existingTeacher = await TeacherModel.findById(userId);
+        console.log("Razorpay Payout Service: Existing teacher found:", !!existingTeacher);
+        
+        if (existingTeacher) {
+          const updatedTeacher = await TeacherModel.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true }
+          );
+          
+          if (!updatedTeacher) {
+            throw new Error("Failed to update teacher profile with Razorpay IDs");
+          }
+          
+          console.log("Razorpay Payout Service: Teacher model updated successfully");
+          return {
+            contactId: contactResult.contactId,
+            fundAccountId: fundAccountResult.fundAccountId,
+            isActive: true,
+            profile: updatedTeacher
+          };
+        } else {
+          throw new Error(`User not found in TeacherProfile or Teacher models with ID: ${userId}`);
+        }
       }
 
-      console.log("Razorpay Payout Service: Payout profile created successfully");
-
-      return {
-        contactId: contactResult.contactId,
-        fundAccountId: fundAccountResult.fundAccountId,
-        isActive: true,
-        profile: updatedProfile
-      };
     } catch (error) {
       console.error("Razorpay Payout Service: Error creating payout profile:", error);
       throw new Error(`Failed to create payout profile: ${error.message}`);
@@ -500,6 +574,76 @@ const razorpayPayoutService = {
         isValid: false,
         message: errorMessage
       };
+    }
+  }),
+
+  /**
+   * Create a payout to teacher's account
+   */
+  createPayout: serviceHandler(async (data) => {
+    console.log("Razorpay Payout Service: Creating payout");
+    try {
+      const { fund_account_id, amount, reference_id, narration, mode = "IMPS" } = data;
+
+      const payoutData = {
+        account_number: process.env.RAZORPAYX_ACCOUNT_NUMBER, // Set this in .env
+        fund_account_id,
+        amount, // in paise
+        currency: "INR",
+        mode,
+        purpose: "payout",
+        queue_if_low_balance: true,
+        reference_id,
+        narration,
+      };
+
+      console.log("Razorpay Payout Service: Payout data:", payoutData);
+
+      // Check if Razorpay SDK is available, otherwise use API fallback
+      let payout;
+      if (!isRazorpayAvailable) {
+        console.warn("Razorpay Payout Service: SDK not available, using API fallback for payout creation");
+        // Use direct API call as fallback
+        const axios = require('axios');
+        const auth = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_SECRET}`).toString('base64');
+        
+        try {
+          const response = await axios.post('https://api.razorpay.com/v1/payouts', payoutData, {
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          payout = response.data;
+          console.log("Razorpay Payout Service: Payout created via API:", payout.id);
+        } catch (apiError) {
+          console.error("Razorpay Payout Service: API payout creation failed:", apiError.response?.data || apiError.message);
+          throw new Error(`Failed to create payout via API: ${apiError.response?.data?.error?.description || apiError.message}`);
+        }
+      } else {
+        payout = await razorpayInstance.payouts.create(payoutData);
+      }
+      
+      if (!payout || !payout.id) {
+        throw new Error("Failed to create payout - invalid response");
+      }
+
+      console.log("Razorpay Payout Service: Payout created successfully", payout.id);
+
+      return {
+        id: payout.id,
+        amount: payout.amount,
+        currency: payout.currency,
+        status: payout.status,
+        reference_id: payout.reference_id,
+        narration: payout.narration,
+        mode: payout.mode,
+        created_at: payout.created_at
+      };
+    } catch (error) {
+      console.error("Razorpay Payout Service: Error creating payout:", error);
+      throw new Error(`Failed to create payout: ${error.message}`);
     }
   })
 };

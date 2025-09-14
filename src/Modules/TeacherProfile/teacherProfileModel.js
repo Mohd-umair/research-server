@@ -198,6 +198,28 @@ const teacherProfileSchema = new mongoose.Schema(
         trim: true
       }
     },
+    // Razorpay Payout Information
+    razorpayPayout: {
+      contactId: {
+        type: String,
+        trim: true
+      },
+      fundId: {
+        type: String,
+        trim: true
+      },
+      isBankActive: {
+        type: Boolean,
+        default: false
+      },
+      setupCompleted: {
+        type: Boolean,
+        default: false
+      },
+      lastUpdated: {
+        type: Date
+      }
+    },
     // Profile Status
     profileStatus: {
       type: String,

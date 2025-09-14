@@ -553,6 +553,93 @@ const consultancyService = {
       message: "Consultancy rejected successfully"
     };
   }),
+
+  requestPayment: serviceHandler(async (data) => {
+    const { consultancyId, amount, consultancyTitle, studentName, decodedUser } = data;
+    
+    console.log('Requesting payment for consultancy:', consultancyId, 'by teacher:', decodedUser._id);
+    
+    // Find the consultancy and verify the teacher owns it
+    const consultancy = await model.getDocumentById({ 
+      _id: consultancyId 
+    }, [
+      { path: "studentId", select: "_id firstName lastName" }
+    ]);
+    
+    if (!consultancy) {
+      throw new CustomError(404, "Consultancy not found");
+    }
+    
+    // Verify the teacher is the owner of this consultancy
+    if (consultancy.teacherId.toString() !== decodedUser._id.toString()) {
+      throw new CustomError(403, "You can only request payment for your own consultancies");
+    }
+    
+    // Check if consultancy is completed
+    if (consultancy.status !== 'completed') {
+      throw new CustomError(400, "Only completed consultancies are eligible for payment requests");
+    }
+    
+    // Create payment request in database
+    const paymentRequestService = require("../PaymentRequests/paymentRequestService");
+    
+    const paymentRequestData = {
+      consultancyId,
+      teacherId: decodedUser._id,
+      studentId: consultancy.studentId._id,
+      amount: parseFloat(amount),
+      consultancyTitle,
+      studentName
+    };
+    
+    const paymentRequest = await paymentRequestService.create(paymentRequestData);
+    
+    console.log('Payment request created in database:', paymentRequest);
+    
+    return {
+      message: "Payment request submitted successfully",
+      paymentRequest
+    };
+  }),
+
+  completeSession: serviceHandler(async (bookingId, decodedUser) => {
+    console.log('Completing session for booking:', bookingId, 'by user:', decodedUser._id);
+    
+    // Find the booking
+    const booking = await model.getDocumentById({ _id: bookingId });
+    if (!booking) {
+      throw new CustomError(404, "Booking not found");
+    }
+    
+    // Check if booking is in inProgress status
+    if (booking.status !== 'inProgress') {
+      throw new CustomError(400, "Only active sessions can be completed");
+    }
+    
+    // Update the booking status to completed
+    const updatedBooking = await model.updateDocument(
+      { _id: bookingId },
+      { 
+        status: 'completed',
+        isFinished: true,
+        completedAt: new Date()
+      },
+      {
+        new: true,
+        populate: [
+          { path: "studentId", select: "firstName lastName email" },
+          { path: "cardId", select: "title description pricing teacherId" }
+        ]
+      }
+    );
+    
+    console.log('Session completed successfully:', updatedBooking);
+    
+    return {
+      booking: updatedBooking,
+      message: "Session completed successfully"
+    };
+  }),
 };
 
 module.exports = consultancyService;
