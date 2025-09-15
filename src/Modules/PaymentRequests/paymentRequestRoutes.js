@@ -13,4 +13,8 @@ paymentRequestRouter.put("/admin/:requestId/status", verifyAdminToken, paymentRe
 // Teacher routes for viewing their payment requests
 paymentRequestRouter.get("/teacher/:teacherId", verifyToken, paymentRequestController.getTeacherPaymentRequests);
 
+// Expert earnings routes (for experts to view their earnings from completed payouts)
+paymentRequestRouter.get("/expert/earnings", verifyToken, paymentRequestController.getExpertEarnings);
+paymentRequestRouter.get("/expert/earnings/summary", verifyToken, paymentRequestController.getExpertEarningsSummary);
+
 module.exports = paymentRequestRouter;

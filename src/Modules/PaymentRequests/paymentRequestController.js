@@ -132,6 +132,47 @@ const paymentRequestController = {
       msg: "Teacher payment requests retrieved successfully"
     });
   }),
+
+  // Get expert earnings from completed payment requests
+  getExpertEarnings: asyncHandler(async (req, res, next) => {
+    const expertId = req.user.id; // From JWT token
+    const { page = 1, limit = 10, startDate, endDate } = req.query;
+    
+    console.log('Get expert earnings endpoint hit for expert:', expertId);
+    
+    const result = await paymentRequestService.getExpertEarnings({
+      expertId,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      startDate,
+      endDate
+    });
+    
+    return successResponse({ 
+      res: res, 
+      data: result.earnings,
+      count: result.pagination.totalCount,
+      pagination: result.pagination,
+      summary: result.summary,
+      msg: "Expert earnings retrieved successfully"
+    });
+  }),
+
+  // Get expert earnings summary
+  getExpertEarningsSummary: asyncHandler(async (req, res, next) => {
+    const expertId = req.user.id; // From JWT token
+    
+    console.log('Get expert earnings summary endpoint hit for expert:', expertId);
+    
+    const summary = await paymentRequestService.getExpertEarningsSummary(expertId);
+    
+    return successResponse({ 
+      res: res, 
+      data: summary,
+      msg: "Expert earnings summary retrieved successfully"
+    });
+  }),
+
 };
 
 module.exports = paymentRequestController;

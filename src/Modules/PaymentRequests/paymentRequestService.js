@@ -168,6 +168,142 @@ const paymentRequestService = {
     return updatedRequest;
   },
 
+  // Get expert earnings from completed payment requests
+  getExpertEarnings: async (data) => {
+    const { expertId, page = 1, limit = 10, startDate, endDate } = data;
+    
+    console.log('Getting expert earnings for:', expertId);
+    
+    // Build query for completed payment requests
+    const query = {
+      teacherId: expertId,
+      payoutStatus: 'completed'
+    };
+    
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      query.processedAt = {};
+      if (startDate) {
+        query.processedAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.processedAt.$lte = new Date(endDate);
+      }
+    }
+    
+    const options = {
+      sort: '-processedAt',
+      limit: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit),
+      populate: [
+        { path: "studentId", select: "firstName lastName email" },
+        { path: "consultancyId", select: "type createdAt" },
+        { path: "processedBy", select: "name email" }
+      ]
+    };
+    
+    const earnings = await model.getAllDocuments(query, options);
+    const totalCount = await model.model.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    
+    // Calculate summary inline
+    const completedRequests = await model.getAllDocuments({
+      teacherId: expertId,
+      payoutStatus: 'completed'
+    });
+    
+    const totalEarnings = completedRequests.reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    // Calculate this month earnings
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+    
+    const thisMonthEarnings = completedRequests
+      .filter(req => new Date(req.processedAt) >= thisMonth)
+      .reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    // Calculate last month earnings
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    lastMonth.setDate(1);
+    lastMonth.setHours(0, 0, 0, 0);
+    
+    const lastMonthEnd = new Date();
+    lastMonthEnd.setDate(0);
+    lastMonthEnd.setHours(23, 59, 59, 999);
+    
+    const lastMonthEarnings = completedRequests
+      .filter(req => new Date(req.processedAt) >= lastMonth && new Date(req.processedAt) <= lastMonthEnd)
+      .reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    const summary = {
+      totalEarnings,
+      thisMonthEarnings,
+      lastMonthEarnings,
+      totalTransactions: completedRequests.length,
+      averageEarning: completedRequests.length > 0 ? totalEarnings / completedRequests.length : 0
+    };
+    
+    return {
+      earnings,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        limit: parseInt(limit),
+        hasNextPage: parseInt(page) < totalPages,
+        hasPrevPage: parseInt(page) > 1
+      },
+      summary
+    };
+  },
+
+  // Get expert earnings summary (public method)
+  getExpertEarningsSummary: async (expertId) => {
+    console.log('Getting expert earnings summary for:', expertId);
+    
+    // Get all completed payment requests for this expert
+    const completedRequests = await model.getAllDocuments({
+      teacherId: expertId,
+      payoutStatus: 'completed'
+    });
+    
+    // Calculate totals
+    const totalEarnings = completedRequests.reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    // Calculate this month earnings
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+    
+    const thisMonthEarnings = completedRequests
+      .filter(req => new Date(req.processedAt) >= thisMonth)
+      .reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    // Calculate last month earnings
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    lastMonth.setDate(1);
+    lastMonth.setHours(0, 0, 0, 0);
+    
+    const lastMonthEnd = new Date();
+    lastMonthEnd.setDate(0);
+    lastMonthEnd.setHours(23, 59, 59, 999);
+    
+    const lastMonthEarnings = completedRequests
+      .filter(req => new Date(req.processedAt) >= lastMonth && new Date(req.processedAt) <= lastMonthEnd)
+      .reduce((sum, req) => sum + (req.teacherAmount || 0), 0);
+    
+    return {
+      totalEarnings,
+      thisMonthEarnings,
+      lastMonthEarnings,
+      totalTransactions: completedRequests.length,
+      averageEarning: completedRequests.length > 0 ? totalEarnings / completedRequests.length : 0
+    };
+  },
+
   initiatePayout: async (requestId, calculatedValues = null) => {
     console.log("Initiating payout for request:", requestId);
     
@@ -356,7 +492,7 @@ const paymentRequestService = {
         fund_account_id: teacher.fundId,
         amount: teacherAmount * 100, // Convert to paise (teacher amount after commission)
         reference_id: `payout-${uuidv4().slice(0, 20)}`,
-        narration: `Payout ${Date.now().toString().slice(-8)}`, // Simple format: "Payout 12345678"
+        narration: `PAYOUT${Date.now().toString().slice(-6)}`, // Format: "PAYOUT123456" (12 chars)
         mode: "IMPS"
       };
       
