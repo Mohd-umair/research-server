@@ -31,6 +31,7 @@ const razorpayPayoutRouter = require("./RazorpayPayout/razorpayPayoutRouter");
 const contactRouter = require("./Contact/contactRouter");
 const coinRouter = require("./Coins/coinRoutes");
 const adminCoinRouter = require("./Coins/adminCoinRoutes");
+const paymentRequestRouter = require("./PaymentRequests/paymentRequestRoutes");
 
 // Import admin authentication routes
 const adminAuthRoutes = require("./Admin/routes/adminRoutes");
@@ -78,7 +79,9 @@ adminRouter.use("/earnings", earningsRouter);
 adminRouter.use("/razorpay", razorpayPayoutRouter);
 adminRouter.use("/collaboration", collaborationRequestRouter);
 adminRouter.use("/coins", adminCoinRouter);
+adminRouter.use("/payment-requests", paymentRequestRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
+userRouter.use("/payment-requests", paymentRequestRouter);
 
 
 

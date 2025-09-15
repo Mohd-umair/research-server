@@ -317,6 +317,329 @@ const consultancyService = {
       return daysDifference <= 30 ? true : false;
     }
   }),
+
+  checkExistingBooking: serviceHandler(async (data) => {
+    const { studentId, consultancyId } = data;
+    
+    console.log('Checking existing booking with data:', { studentId, consultancyId });
+    
+    const existingBooking = await model.getDocument({
+      studentId: studentId,
+      cardId: consultancyId,
+      status: { $in: ["pending", "inProgress"] },
+      isFinished: false
+    });
+
+    console.log('Found existing booking:', existingBooking);
+
+    return {
+      hasActiveBooking: !!existingBooking,
+      booking: existingBooking
+    };
+  }),
+
+  getUserBookings: serviceHandler(async (data) => {
+    const { studentId, page = 1, limit = 10 } = data;
+    
+    console.log('Getting user bookings for student:', studentId, 'page:', page, 'limit:', limit);
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Get all bookings for the student with populated teacher and consultancy data
+    const query = { studentId: studentId };
+    const options = { 
+      sort: 'createdAt', // Sort by newest first
+      limit: parseInt(limit),
+      skip: skip
+    };
+    const populate = [
+      {
+        path: 'teacherId',
+        select: 'name email specialisation institute experience skills degree role'
+      },
+      {
+        path: 'cardId',
+        select: 'title description pricing teacherId'
+      }
+    ];
+    
+    const bookings = await model.getAllDocuments(query, { ...options, populate });
+    
+    // Get total count for pagination
+    const totalCount = await model.model.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    console.log('Found bookings:', bookings.length);
+    console.log('Sample booking data:', JSON.stringify(bookings[0], null, 2));
+
+    // For bookings where teacherId is null, get teacher info from ConsultancyCard
+    for (let booking of bookings) {
+      console.log('Processing booking:', booking._id, 'teacherId:', booking.teacherId, 'cardId.teacherId:', booking.cardId?.teacherId);
+      
+      if (!booking.teacherId && booking.cardId && booking.cardId.teacherId) {
+        console.log('Fetching teacher info for teacherId:', booking.cardId.teacherId);
+        // Get teacher info from the ConsultancyCard's teacherId (Teacher model, not Profile)
+        const Teacher = require("../Teachers/teacherModel");
+        const teacher = await Teacher.findById(booking.cardId.teacherId);
+        console.log('Found teacher:', teacher ? 'Yes' : 'No', teacher?.name);
+        if (teacher) {
+          booking.teacherId = teacher;
+          console.log('Set teacherId for booking:', booking._id);
+        }
+      }
+    }
+
+    return {
+      bookings,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        limit: parseInt(limit),
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    };
+  }),
+
+  getExpertBookings: serviceHandler(async (data) => {
+    const { teacherId, page = 1, limit = 10 } = data;
+    
+    console.log('Getting expert bookings for teacher:', teacherId, 'page:', page, 'limit:', limit);
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Get all bookings for the expert with populated student and consultancy data
+    const query = { teacherId: teacherId };
+    const options = { 
+      sort: 'createdAt', // Sort by newest first
+      limit: parseInt(limit),
+      skip: skip
+    };
+    // First get the bookings without populate
+    const bookings = await model.getAllDocuments(query, options);
+    
+    // Then manually populate the student and card data
+    const Student = require("../Students/studentModel");
+    const ConsultancyCard = require("../ConsultancyCard/consultancyCardModel");
+    
+    for (let booking of bookings) {
+      if (booking.studentId) {
+        const student = await Student.findById(booking.studentId).select('firstName lastName email');
+        booking.studentId = student;
+      }
+      if (booking.cardId) {
+        const card = await ConsultancyCard.findById(booking.cardId).select('title description pricing teacherId');
+        booking.cardId = card;
+      }
+    }
+    
+    // Get total count for pagination
+    const totalCount = await model.model.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    console.log('Found expert bookings:', bookings.length);
+    if (bookings.length > 0) {
+      console.log('Sample expert booking data:', JSON.stringify(bookings[0], null, 2));
+      console.log('Student data in booking:', bookings[0].studentId);
+      console.log('Student firstName:', bookings[0].studentId?.firstName);
+      console.log('Student lastName:', bookings[0].studentId?.lastName);
+      console.log('Student email:', bookings[0].studentId?.email);
+    }
+
+    return {
+      bookings,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalCount,
+        limit: parseInt(limit),
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    };
+  }),
+
+  acceptConsultancy: serviceHandler(async (data) => {
+    const { consultancyId, decodedUser } = data;
+    
+    console.log('Accepting consultancy:', consultancyId, 'by teacher:', decodedUser._id);
+    
+    // Find the consultancy and verify the teacher owns it
+    const consultancy = await model.getDocumentById({ _id: consultancyId });
+    if (!consultancy) {
+      throw new CustomError(404, "Consultancy not found");
+    }
+    
+    // Verify the teacher is the owner of this consultancy
+    if (consultancy.teacherId.toString() !== decodedUser._id.toString()) {
+      throw new CustomError(403, "You can only accept your own consultancy bookings");
+    }
+    
+    // Check if consultancy is in pending status
+    if (consultancy.status !== 'pending') {
+      throw new CustomError(400, "Only pending consultancies can be accepted");
+    }
+    
+    // Update the consultancy status to inProgress
+    const updatedConsultancy = await model.updateDocument(
+      { _id: consultancyId },
+      { 
+        status: 'inProgress',
+        isScheduled: true
+      },
+      {
+        new: true,
+        populate: [
+          { path: "studentId", select: "firstName lastName email" },
+          { path: "teacherId", select: "name email" },
+          { path: "cardId", select: "title description pricing" }
+        ]
+      }
+    );
+    
+    console.log('Consultancy accepted successfully:', updatedConsultancy);
+    
+    return {
+      consultancy: updatedConsultancy,
+      message: "Consultancy accepted successfully"
+    };
+  }),
+
+  rejectConsultancy: serviceHandler(async (data) => {
+    const { consultancyId, decodedUser } = data;
+    
+    console.log('Rejecting consultancy:', consultancyId, 'by teacher:', decodedUser._id);
+    
+    // Find the consultancy and verify the teacher owns it
+    const consultancy = await model.getDocumentById({ _id: consultancyId });
+    if (!consultancy) {
+      throw new CustomError(404, "Consultancy not found");
+    }
+    
+    // Verify the teacher is the owner of this consultancy
+    if (consultancy.teacherId.toString() !== decodedUser._id.toString()) {
+      throw new CustomError(403, "You can only reject your own consultancy bookings");
+    }
+    
+    // Check if consultancy is in pending status
+    if (consultancy.status !== 'pending') {
+      throw new CustomError(400, "Only pending consultancies can be rejected");
+    }
+    
+    // Update the consultancy status to rejected
+    const updatedConsultancy = await model.updateDocument(
+      { _id: consultancyId },
+      { 
+        status: 'rejected',
+        isScheduled: false
+      },
+      {
+        new: true,
+        populate: [
+          { path: "studentId", select: "firstName lastName email" },
+          { path: "teacherId", select: "name email" },
+          { path: "cardId", select: "title description pricing" }
+        ]
+      }
+    );
+    
+    console.log('Consultancy rejected successfully:', updatedConsultancy);
+    
+    return {
+      consultancy: updatedConsultancy,
+      message: "Consultancy rejected successfully"
+    };
+  }),
+
+  requestPayment: serviceHandler(async (data) => {
+    const { consultancyId, amount, consultancyTitle, studentName, decodedUser } = data;
+    
+    console.log('Requesting payment for consultancy:', consultancyId, 'by teacher:', decodedUser._id);
+    
+    // Find the consultancy and verify the teacher owns it
+    const consultancy = await model.getDocumentById({ 
+      _id: consultancyId 
+    }, [
+      { path: "studentId", select: "_id firstName lastName" }
+    ]);
+    
+    if (!consultancy) {
+      throw new CustomError(404, "Consultancy not found");
+    }
+    
+    // Verify the teacher is the owner of this consultancy
+    if (consultancy.teacherId.toString() !== decodedUser._id.toString()) {
+      throw new CustomError(403, "You can only request payment for your own consultancies");
+    }
+    
+    // Check if consultancy is completed
+    if (consultancy.status !== 'completed') {
+      throw new CustomError(400, "Only completed consultancies are eligible for payment requests");
+    }
+    
+    // Create payment request in database
+    const paymentRequestService = require("../PaymentRequests/paymentRequestService");
+    
+    const paymentRequestData = {
+      consultancyId,
+      teacherId: decodedUser._id,
+      studentId: consultancy.studentId._id,
+      amount: parseFloat(amount),
+      consultancyTitle,
+      studentName
+    };
+    
+    const paymentRequest = await paymentRequestService.create(paymentRequestData);
+    
+    console.log('Payment request created in database:', paymentRequest);
+    
+    return {
+      message: "Payment request submitted successfully",
+      paymentRequest
+    };
+  }),
+
+  completeSession: serviceHandler(async (bookingId, decodedUser) => {
+    console.log('Completing session for booking:', bookingId, 'by user:', decodedUser._id);
+    
+    // Find the booking
+    const booking = await model.getDocumentById({ _id: bookingId });
+    if (!booking) {
+      throw new CustomError(404, "Booking not found");
+    }
+    
+    // Check if booking is in inProgress status
+    if (booking.status !== 'inProgress') {
+      throw new CustomError(400, "Only active sessions can be completed");
+    }
+    
+    // Update the booking status to completed
+    const updatedBooking = await model.updateDocument(
+      { _id: bookingId },
+      { 
+        status: 'completed',
+        isFinished: true,
+        completedAt: new Date()
+      },
+      {
+        new: true,
+        populate: [
+          { path: "studentId", select: "firstName lastName email" },
+          { path: "cardId", select: "title description pricing teacherId" }
+        ]
+      }
+    );
+    
+    console.log('Session completed successfully:', updatedBooking);
+    
+    return {
+      booking: updatedBooking,
+      message: "Session completed successfully"
+    };
+  }),
 };
 
 module.exports = consultancyService;

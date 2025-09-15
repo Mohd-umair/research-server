@@ -10,6 +10,9 @@ const crypto = require("crypto");
 // Import earnings service for creating earnings transactions
 const earningsService = require("../Earnings/earningsService");
 
+// Import Consultancy model for booking management
+const ConsultancyModel = require("../Consultancy/ConsultancyModel");
+
 const paymentGatewayInstance = require("../../Utils/paymentGatewayUtil");
 
 // Lazy initialization of Razorpay instance
@@ -120,7 +123,33 @@ const paymentService = {
     console.log("Payment Service: Creating consultancy Razorpay order");
     console.log("Payment Service: Received data:", data);
     try {
-      const { amount, currency, teacherId, consultancyId, studentId, sessionType, consultancyType } = data;
+      const { amount, currency, consultancyId, studentId, sessionType, consultancyType } = data;
+      
+      // Get teacherId from the ConsultancyCard
+      const ConsultancyCard = require("../ConsultancyCard/consultancyCardModel");
+      const consultancyCard = await ConsultancyCard.findById(consultancyId);
+      if (!consultancyCard) {
+        throw new Error("Consultancy card not found");
+      }
+      const teacherId = consultancyCard.teacherId;
+      console.log("Payment Service: teacherId type:", typeof teacherId, "value:", teacherId);
+
+      // Check for existing active bookings
+      console.log("Payment Service: Checking for existing bookings with:", { studentId, consultancyId });
+      
+      const existingBooking = await ConsultancyModel.findOne({
+        studentId: studentId,
+        cardId: consultancyId,
+        status: { $in: ["pending", "inProgress"] },
+        isFinished: false
+      });
+
+      console.log("Payment Service: Found existing booking:", existingBooking);
+
+      if (existingBooking) {
+        console.log("Payment Service: Duplicate booking detected, throwing error");
+        throw new Error("You already have an active booking for this consultancy. Please complete your current session before booking again.");
+      }
 
       // Convert amount from rupees to paise (Razorpay expects amount in paise)
       const amountInPaise = Math.round(amount * 100);
@@ -135,9 +164,9 @@ const paymentService = {
       const orderOptions = {
         amount: amountInPaise, // Convert to paise for Razorpay
         currency: currency,
-        receipt: `c_${teacherId.slice(-6)}_${Date.now()}`,
+        receipt: `c_${teacherId.toString().slice(-6)}_${Date.now()}`,
         notes: {
-          teacherId: teacherId,
+          teacherId: teacherId.toString(),
           consultancyId: consultancyId,
           studentId: studentId,
           sessionType: sessionType,
@@ -304,8 +333,23 @@ const paymentService = {
         await createEarningsFromPayment(payment);
       }
 
-      console.log("Payment Service: Consultancy payment verified and earnings created");
-      return payment;
+      // Create booking record in Consultancy model
+      const bookingData = {
+        teacherId: teacherId,
+        studentId: studentId,
+        cardId: consultancyId,
+        paymentId: payment._id,
+        type: sessionType || 'single',
+        status: 'pending',
+        isScheduled: false,
+        isFinished: false
+      };
+
+      const booking = await ConsultancyModel.create(bookingData);
+      console.log("Payment Service: Booking created successfully:", booking._id);
+
+      console.log("Payment Service: Consultancy payment verified, earnings created, and booking created");
+      return { payment, booking };
     } catch (error) {
       console.error("Payment Service: Error verifying consultancy payment:", error);
       throw new Error(`Consultancy payment verification failed: ${error.message}`);
