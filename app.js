@@ -21,16 +21,25 @@ const app = express();
 
 
 const corsOrigins = [
+  "http://localhost:4200", 
   "https://localhost:4200", 
   "http://localhost:4201", 
+  "https://localhost:4201",
   "http://localhost:3000", 
   "http://localhost:8080",
   "http://localhost:3001",
   "https://researchdecode.com", 
   "https://www.researchdecode.com", 
   "https://admin.researchdecode.com",
-  "https://srv695649.hstgr.cloud", 
-  "http://46.202.166.229"
+  "https://srv695649.hstgr.cloud",
+  "https://srv695649.hstgr.cloud:4200",
+  "https://srv695649.hstgr.cloud:4201",
+  "http://srv695649.hstgr.cloud",
+  "http://srv695649.hstgr.cloud:4200", 
+  "http://srv695649.hstgr.cloud:4201",
+  "http://46.202.166.229",
+  "http://46.202.166.229:4200",
+  "http://46.202.166.229:4201"
 ];
 
     app.use(cors({
@@ -40,12 +49,15 @@ const corsOrigins = [
         if (corsOrigins.indexOf(origin) !== -1) {
           callback(null, true);
         } else {
+          console.log('CORS blocked origin:', origin);
           callback(new Error('Not allowed by CORS'));
         }
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 86400 // 24 hours
     }));
 
     // app.use(cors({
