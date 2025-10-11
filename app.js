@@ -60,12 +60,12 @@ const corsOrigins = [
       maxAge: 86400 // 24 hours
     }));
 
-    // app.use(cors({
-    //   origin: '*', // allow all origins temporarily
-    //   credentials: true, // you can disable credentials for testing
-    // }));
-// Handle preflight requests
-app.options('*', cors());
+//     app.use(cors({
+//       origin: '*', // allow all origins temporarily
+//       credentials: true, // you can disable credentials for testing
+//     }));
+// // Handle preflight requests
+// app.options('*', cors());
 
 // Parse JSON and URL encoded data for all routes EXCEPT upload routes
 app.use('/admin/upload', (req, res, next) => {

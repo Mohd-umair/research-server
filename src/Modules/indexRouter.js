@@ -32,6 +32,7 @@ const contactRouter = require("./Contact/contactRouter");
 const coinRouter = require("./Coins/coinRoutes");
 const adminCoinRouter = require("./Coins/adminCoinRoutes");
 const paymentRequestRouter = require("./PaymentRequests/paymentRequestRoutes");
+const notificationRouter = require("./Notifications/notificationRouter");
 
 // Import admin authentication routes
 const adminAuthRoutes = require("./Admin/routes/adminRoutes");
@@ -80,6 +81,7 @@ adminRouter.use("/razorpay", razorpayPayoutRouter);
 adminRouter.use("/collaboration", collaborationRequestRouter);
 adminRouter.use("/coins", adminCoinRouter);
 adminRouter.use("/payment-requests", paymentRequestRouter);
+adminRouter.use("/notifications", notificationRouter);
 userRouter.use("/collaboration", collaborationRequestRouter);
 userRouter.use("/payment-requests", paymentRequestRouter);
 
@@ -107,6 +109,7 @@ userRouter.use("/collaboration", collaborationRequestRouter);
 userRouter.use("/coins", coinRouter);
 userRouter.use("/earnings", earningsRouter);
 userRouter.use("/razorpay", razorpayPayoutRouter);
+userRouter.use("/notifications", notificationRouter);
 apiRouter.use("/conversations", conversationRouter);
 
 

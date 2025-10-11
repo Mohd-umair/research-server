@@ -182,6 +182,7 @@ const conSocket = (server, port) => {
       try {
         const { conversationId, sender, recipient, message, messageType = 'text', attachment = null } = params;
         
+        
         // Save message to database
         const savedMessage = await chatService.createChats({
           conversationId,
@@ -209,6 +210,49 @@ const conSocket = (server, port) => {
             message,
             timestamp: new Date()
           });
+        }
+        
+        // Send notification to the recipient about the new message
+        try {
+          const notificationService = require("../Notifications/notificationService");
+          
+          // Get sender information
+          let senderName = 'Someone';
+          
+          // Determine sender type based on senderModel
+          if (params.senderModel === 'Student') {
+            const StudentModel = require("../Students/studentModel");
+            const student = await StudentModel.findById(sender);
+            if (student) {
+              senderName = `${student.firstName} ${student.lastName}`;
+            }
+          } else {
+            // Sender is a teacher/expert
+            const TeacherModel = require("../Teachers/teacherModel");
+            const teacher = await TeacherModel.findById(sender);
+            if (teacher) {
+              senderName = `${teacher.firstName} ${teacher.lastName}`;
+            }
+          }
+          
+          // Determine recipient type based on recipientModel
+          const recipientType = params.recipientModel === 'Profile' ? 'teacher' : 'student';
+          
+          // Create message preview (first 50 characters)
+          const messagePreview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+          
+          await notificationService.createMessageReceivedNotification({
+            recipientId: recipient,
+            recipientType: recipientType,
+            senderName: senderName,
+            senderId: sender,
+            messagePreview: messagePreview,
+            conversationId: conversationId
+          });
+          
+        } catch (notificationError) {
+          console.error('Failed to send socket message notification:', notificationError.message);
+          // Don't fail the message sending if notification fails
         }
         
       } catch (error) {

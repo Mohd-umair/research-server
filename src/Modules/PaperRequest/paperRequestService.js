@@ -21,6 +21,7 @@ const {
 const CustomError = require("../../Errors/CustomError");
 const uploadFileService = require("../../Utils/uploader");
 const { sendCustomEmail } = require("../../Utils/mailer");
+const notificationService = require("../Notifications/notificationService");
 
 // service layer
 const paperRequestService = {
@@ -179,6 +180,28 @@ const paperRequestService = {
         throw new CustomError(404, "Original user request not found");
       }
 
+      // If requestBy is not populated, get it directly
+      if (!originalRequest.requestBy || !originalRequest.requestBy._id) {
+        const rawRequest = await userRequestModel.getDocumentById({ _id: userRequestId });
+        if (rawRequest?.requestBy) {
+          originalRequest.requestBy = { _id: rawRequest.requestBy };
+        }
+      }
+
+      // Get uploader information
+      let uploaderName = "Someone";
+      if (uploadedBy) {
+        try {
+          const uploader = await studentModel.getDocumentById({ _id: uploadedBy });
+          if (uploader) {
+            uploaderName = `${uploader.firstName} ${uploader.lastName}`;
+          }
+        } catch (error) {
+          console.error("Error fetching uploader details:", error);
+          // Continue with default "Someone"
+        }
+      }
+
       // Create new PaperRequest entry
       const newPaperRequest = await model.save({
         requestBy: userRequestId, // This links to the original user request
@@ -213,6 +236,20 @@ const paperRequestService = {
           }
         }
       );
+
+      // Create notification for the request owner
+      try {
+        await notificationService.createDocumentUploadNotification({
+          requestOwnerId: originalRequest.requestBy._id,
+          uploaderName: uploaderName,
+          documentTitle: paperDetail.title,
+          userRequestId: userRequestId,
+        });
+        console.log(`✅ Document upload notification created for user ${originalRequest.requestBy._id}`);
+      } catch (notificationError) {
+        console.error('Error creating document upload notification:', notificationError);
+        // Don't throw error - notification is not critical
+      }
 
       // Note: Coins will be added when the request creator approves the fulfillment
       // This prevents users from gaining coins just by uploading documents

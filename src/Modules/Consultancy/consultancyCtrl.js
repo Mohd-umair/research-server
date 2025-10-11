@@ -238,10 +238,11 @@ const consultancyCtrl = {
     const { bookingId } = req.params;
     const decodedUser = req.decodedUser;
     
-    console.log('Complete session endpoint hit for booking:', bookingId, 'by user:', decodedUser._id);
+    console.log(`[CONTROLLER DEBUG] completeSession endpoint hit for booking: ${bookingId} by user: ${decodedUser._id}`);
+    console.log(`[CONTROLLER DEBUG] User details:`, decodedUser.firstName, decodedUser.lastName, decodedUser.email);
     
     const result = await consultancyService.completeSession(bookingId, decodedUser);
-    console.log('Complete session result:', result);
+    console.log(`[CONTROLLER DEBUG] Complete session result:`, result.message);
     
     return successResponse({ 
       res: res, 

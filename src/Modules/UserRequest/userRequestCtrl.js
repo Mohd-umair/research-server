@@ -119,24 +119,17 @@ const userRequestCtrl = {
       const loggedInUserId = req.body.decodedUser._id;
       console.log('Logged in user ID for user requests:', loggedInUserId);
       
-      // Override requestBy to ensure we only get data for the logged-in user
-      queryParams.requestBy = loggedInUserId;
+      // Override userId to ensure we only get data for the logged-in user
+      queryParams.userId = loggedInUserId;
       
       const result = await userRequestService.getAllRequests(queryParams);
 
       return successResponse({
         res,
-        data: result.data,
-        count: result.totalCount,
-        userRequestsCount: result.userRequestsCount,
-        paperRequestsCount: result.paperRequestsCount,
-        pagination: {
-          currentPage: result.currentPage,
-          totalPages: result.totalPages,
-          hasNextPage: result.hasNextPage,
-          hasPrevPage: result.hasPrevPage
-        },
-        msg: `Found ${result.data.length} requests (${result.userRequestsCount} user requests + ${result.paperRequestsCount} matching paper requests)`,
+        data: result.requests,
+        count: result.pagination.totalCount,
+        pagination: result.pagination,
+        msg: `Found ${result.requests.length} requests`,
       });
     } catch (error) {
       next(error);

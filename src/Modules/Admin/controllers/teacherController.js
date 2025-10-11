@@ -2,6 +2,7 @@ const Teacher = require('../../Teachers/teacherModel');
 const TeacherProfile = require('../../TeacherProfile/teacherProfileModel');
 const CustomError = require('../../../Errors/CustomError');
 const mongoose = require('mongoose');
+const notificationService = require('../../Notifications/notificationService');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -619,6 +620,10 @@ function getTeacherStatus(teacher, profile) {
  * PUT /api/admin/teachers/:id/approve
  */
 const approveTeacher = async (req, res, next) => {
+  console.log(`[CONTROLLER DEBUG] approveTeacher function called for ID: ${req.params.id}`);
+  console.log(`[CONTROLLER DEBUG] Admin: ${req.admin?.email || 'Unknown'}`);
+  console.log(`[CONTROLLER DEBUG] Request body:`, req.body);
+  
   try {
     const { id } = req.params;
     const { approvalNote } = req.body;
@@ -655,6 +660,23 @@ const approveTeacher = async (req, res, next) => {
       await profile.save();
     }
 
+    // Send notification to the approved teacher
+    console.log(`[DEBUG] About to send notification for teacher: ${teacher.email} (ID: ${teacher._id})`);
+    try {
+      const notification = await notificationService.createTeacherApprovalNotification({
+        teacherId: teacher._id,
+        teacherName: `${teacher.firstName} ${teacher.lastName}`,
+        adminId: req.admin._id,
+      });
+      console.log(`[NOTIFICATION SENT] Teacher approval notification sent to: ${teacher.email}`);
+      console.log(`[NOTIFICATION DETAILS] ID: ${notification._id}, Title: ${notification.title}`);
+    } catch (notificationError) {
+      console.error('❌ Failed to send teacher approval notification:', notificationError);
+      console.error('❌ Error details:', notificationError.message);
+      console.error('❌ Stack trace:', notificationError.stack);
+      // Don't fail the approval process if notification fails
+    }
+
     // Log the action
     console.log(`[TEACHER APPROVED] ${new Date().toISOString()} - Teacher: ${teacher.email} - By: ${req.admin.email} (${req.admin.role})`);
 
@@ -683,6 +705,10 @@ const approveTeacher = async (req, res, next) => {
  * PUT /api/admin/teachers/:id/reject
  */
 const rejectTeacher = async (req, res, next) => {
+  console.log(`[CONTROLLER DEBUG] rejectTeacher function called for ID: ${req.params.id}`);
+  console.log(`[CONTROLLER DEBUG] Admin: ${req.admin?.email || 'Unknown'}`);
+  console.log(`[CONTROLLER DEBUG] Request body:`, req.body);
+  
   try {
     const { id } = req.params;
     const { rejectionReasons, rejectionNote } = req.body;
@@ -721,6 +747,24 @@ const rejectTeacher = async (req, res, next) => {
         });
       }
       await profile.save();
+    }
+
+    // Send notification to the rejected teacher
+    console.log(`[DEBUG] About to send rejection notification for teacher: ${teacher.email} (ID: ${teacher._id})`);
+    try {
+      const notification = await notificationService.createTeacherRejectionNotification({
+        teacherId: teacher._id,
+        teacherName: `${teacher.firstName} ${teacher.lastName}`,
+        adminId: req.admin._id,
+        rejectionReasons: rejectionReasons,
+      });
+      console.log(`[NOTIFICATION SENT] Teacher rejection notification sent to: ${teacher.email}`);
+      console.log(`[NOTIFICATION DETAILS] ID: ${notification._id}, Title: ${notification.title}`);
+    } catch (notificationError) {
+      console.error('❌ Failed to send teacher rejection notification:', notificationError);
+      console.error('❌ Error details:', notificationError.message);
+      console.error('❌ Stack trace:', notificationError.stack);
+      // Don't fail the rejection process if notification fails
     }
 
     // Log the action

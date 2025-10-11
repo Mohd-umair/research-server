@@ -46,7 +46,6 @@ const generateAdminToken = (adminObj) => {
 const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || req.header("Authorization");
-    console.log('Auth header:', authHeader);
 
     if (!authHeader) {
       return res.status(401).json({ msg: "Authorization header missing" });
@@ -54,18 +53,12 @@ const verifyToken = (req, res, next) => {
 
     // Extract token from "Bearer TOKEN" format
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-    console.log('Extracted token:', token ? 'Token present' : 'No token');
 
     if (!token) {
       return res.status(401).json({ msg: "Token missing from Authorization header" });
     }
 
     const decodedUser = jwt.verify(token, process.env.JWT_SECRET); // Verify the token
-    console.log('Decoded user from token:', { 
-      _id: decodedUser._id, 
-      firstName: decodedUser.firstName, 
-      userType: decodedUser.userType 
-    });
     
     // Set user information on req.user (this is what controllers expect)
     req.user = {
@@ -80,15 +73,8 @@ const verifyToken = (req, res, next) => {
     req.body.userRole = decodedUser.role;
     req.decodedUser = decodedUser;
     
-    console.log('Added to req.user:', { 
-      id: req.user.id,
-      firstName: req.user.firstName,
-      userType: req.user.userType
-    });
-    
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
     return res.status(401).json({ msg: "Token verification failed" });
   }
 };

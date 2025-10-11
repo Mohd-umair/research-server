@@ -7,9 +7,36 @@ const teacherCollaborationService = {
     try {
       const newCollaboration = new TeacherCollaboration(collaborationData);
       const savedCollaboration = await newCollaboration.save();
-      return await TeacherCollaboration.findById(savedCollaboration._id)
+      
+      const populatedCollaboration = await TeacherCollaboration.findById(savedCollaboration._id)
         .populate('createdBy', 'firstName lastName email')
         .exec();
+      
+      // Send notifications to all users about the new collaboration
+      try {
+        const notificationService = require("../Notifications/notificationService");
+        
+        // Get creator information
+        let creatorName = 'Someone';
+        const TeacherModel = require("../Teachers/teacherModel");
+        const teacher = await TeacherModel.findById(collaborationData.createdBy);
+        if (teacher) {
+          creatorName = `${teacher.firstName} ${teacher.lastName}`;
+        }
+        
+        await notificationService.createCollaborationCreatedNotification({
+          collaborationId: savedCollaboration._id,
+          collaborationTitle: savedCollaboration.title,
+          creatorName: creatorName,
+          creatorId: collaborationData.createdBy
+        });
+        
+      } catch (notificationError) {
+        console.error('Failed to send teacher collaboration creation notifications:', notificationError.message);
+        // Don't fail the collaboration creation if notification fails
+      }
+      
+      return populatedCollaboration;
     } catch (error) {
       throw new CustomError(500, "Error creating teacher collaboration: " + error.message);
     }

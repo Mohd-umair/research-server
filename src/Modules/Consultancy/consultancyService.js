@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 
 const CustomError = require("../../Errors/CustomError");
 const paymentService = require("../Payment/paymentService");
+const notificationService = require("../Notifications/notificationService");
 const model = new DatabaseService(Consultancy);
 const ConsultancyCard = require("../ConsultancyCard/consultancyCardModel");
 const consultancyCardModel = new DatabaseService(ConsultancyCard);
@@ -634,6 +635,29 @@ const consultancyService = {
     );
     
     console.log('Session completed successfully:', updatedBooking);
+    
+    // Send notification to the teacher/expert
+    try {
+      // Get teacher information from the consultancy card
+      const consultancyCard = await consultancyCardModel.getDocumentById({ 
+        _id: updatedBooking.cardId._id 
+      }, { path: "teacherId", select: "firstName lastName email" });
+      
+      if (consultancyCard && consultancyCard.teacherId) {
+        const notificationData = {
+          teacherId: consultancyCard.teacherId._id,
+          teacherName: `${consultancyCard.teacherId.firstName} ${consultancyCard.teacherId.lastName}`,
+          studentId: updatedBooking.studentId._id,
+          studentName: `${updatedBooking.studentId.firstName} ${updatedBooking.studentId.lastName}`,
+          consultancyTitle: updatedBooking.cardId.title,
+        };
+        
+        await notificationService.createConsultancyCompletionNotification(notificationData);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send consultancy completion notification:', notificationError.message);
+      // Don't fail the completion process if notification fails
+    }
     
     return {
       booking: updatedBooking,

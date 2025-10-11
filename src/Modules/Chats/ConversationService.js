@@ -478,13 +478,28 @@ const conversationService = {
       throw new Error("Conversation not found or access denied");
     }
 
-    // Populate participant details
+    // Store original participant IDs before population
+    const originalParticipants = conversation.participants.map(p => ({
+      originalId: p.user,
+      userModel: p.userModel,
+      role: p.role,
+      _id: p._id
+    }));
+    
     await conversation.populate([
       {
         path: 'participants.user',
         select: 'firstName lastName name email profilePicture profileImage specialisation'
       }
     ]);
+    
+    // Fix any failed populations by restoring original IDs
+    conversation.participants.forEach((participant, index) => {
+      if (!participant.user && originalParticipants[index]) {
+        participant.user = originalParticipants[index].originalId;
+        participant._isUnpopulated = true; // Flag to indicate this is just an ID
+      }
+    });
 
     return conversation;
   }),

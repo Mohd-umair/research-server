@@ -3,6 +3,7 @@ const CustomError = require("../../Errors/CustomError");
 const PaperRequest = require("../PaperRequest/PaperRequest");
 const CoinService = require("../Coins/coinService");
 const Student = require("../Students/studentModel");
+const notificationService = require("../Notifications/notificationService");
 
 const userRequestService = {
   // Create a new user request
@@ -10,8 +11,9 @@ const userRequestService = {
     try {
       let foundPaperRequest = null;
       
+      // DISABLED: Auto-approval feature - now all requests go through admin approval
       // Check if this is a document request with DOI or title
-      if (requestData.type === 'Document' && requestData.documentDetails && 
+      if (false && requestData.type === 'Document' && requestData.documentDetails && 
           (requestData.documentDetails.doi || requestData.documentDetails.title)) {
         
         // Build search conditions - match either DOI or exact title
@@ -96,291 +98,141 @@ const userRequestService = {
       // If no document found, create request normally
       const newRequest = new UserRequest(requestData);
       const savedRequest = await newRequest.save();
-      return await UserRequest.findById(savedRequest._id)
+      const populatedRequest = await UserRequest.findById(savedRequest._id)
         .populate('requestBy', 'firstName lastName email')
         .exec();
+
+      // Create notifications for all other students
+      try {
+        // Get the request creator's info
+        const requestCreator = populatedRequest.requestBy;
+        const creatorName = requestCreator ? 
+          `${requestCreator.firstName} ${requestCreator.lastName}` : 
+          'Someone';
+
+        // Get request details for notification
+        const requestTitle = requestData.title || 
+          (requestData.documentDetails?.title) || 
+          'a new request';
+        
+        const requestType = requestData.type || 'Request';
+
+        // Get all students except the request creator
+        const allStudents = await Student.find({
+          _id: { $ne: requestData.requestBy },
+          isDelete: false,
+          isActive: true,
+          userType: 'USER' // Exclude bot users
+        }).select('_id').lean();
+
+        console.log(`📢 Creating notifications for ${allStudents.length} students about new request`);
+
+        // Create notification for each student
+        const notificationPromises = allStudents.map(student => {
+          return notificationService.createNotification({
+            recipient: student._id,
+            recipientModel: 'Teacher',
+            type: 'NEW_REQUEST',
+            title: 'New Research Request',
+            message: `${creatorName} created a new ${requestType.toLowerCase()} request: "${requestTitle}"`,
+            relatedEntity: {
+              entityType: 'UserRequest',
+              entityId: savedRequest._id
+            },
+            triggeredBy: requestData.requestBy,
+            priority: 'medium',
+            actionUrl: `/user-dashboard/request`,
+            metadata: {
+              requestType: requestData.type,
+              requestTitle: requestTitle,
+              creatorName: creatorName
+            }
+          });
+        });
+
+        // Execute all notifications in parallel
+        await Promise.all(notificationPromises);
+        console.log(`✅ Notifications created for ${allStudents.length} students`);
+
+      } catch (notificationError) {
+        console.error('❌ Error creating notifications for new request:', notificationError);
+        // Don't throw error - notification failure shouldn't prevent request creation
+      }
+
+      return populatedRequest;
+      
     } catch (error) {
-      throw new CustomError(500, "Error creating user request: " + error.message);
+      console.error("Error in createRequest:", error);
+      throw new CustomError(500, error.message || "Failed to create request");
     }
   },
 
-  // Get all user requests with filtering and pagination
-  getAllRequests: async (queryParams = {}) => {
+  // Get all requests with optional filtering
+  getAllRequests: async (options = {}) => {
     try {
-      const {
-        page = 1,
-        limit = 10,
-        search,
-        requestBy,
-        type,
-        status,
-        priority,
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
-      } = queryParams;
+      const { 
+        page = 1, 
+        limit = 10, 
+        status, 
+        type, 
+        userId,
+        search 
+      } = options;
 
-      // Ensure requestBy is provided for user filtering
-      if (!requestBy) {
-        throw new Error("User ID (requestBy) is required for filtering user requests");
-      }
-
-      const filter = { 
-        isDeleted: false,
-        requestBy: requestBy // Filter by current user - only show their own requests
-      };
-
-      console.log('UserRequest filter:', filter);
-
-      // Apply additional filters
-      if (type) {
-        filter.type = type;
-      }
-
+      // Build query
+      const query = { isDeleted: false };
+      
       if (status) {
-        filter.status = status;
+        query.status = status;
+      }
+      
+      if (type) {
+        query.type = type;
       }
 
-      if (priority) {
-        filter.priority = priority;
+      if (userId) {
+        query.requestBy = userId;
       }
 
       if (search) {
-        filter.$or = [
+        query.$or = [
           { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { 'labDetails.nature': { $regex: search, $options: 'i' } },
-          { 'documentDetails.title': { $regex: search, $options: 'i' } },
-          { 'documentDetails.author': { $regex: search, $options: 'i' } },
-          { 'dataDetails.title': { $regex: search, $options: 'i' } }
+          { description: { $regex: search, $options: 'i' } }
         ];
       }
 
-      const sortOptions = {};
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
       const skip = (page - 1) * limit;
 
-      // Get user requests
-      const [userRequests, userRequestsCount] = await Promise.all([
-        UserRequest.find(filter)
-          .populate('requestBy', 'firstName lastName email')
-          .populate('adminResponse.respondedBy', 'name email')
-          .sort(sortOptions)
+      const [requests, totalCount] = await Promise.all([
+        UserRequest.find(query)
+          .populate('requestBy', 'firstName lastName email profilePicture')
+          .populate('adminResponse.respondedBy', 'firstName lastName email')
+          .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(parseInt(limit))
-          .lean()
-          .exec(),
-        UserRequest.countDocuments(filter)
-      ]);
-
-      console.log(`Found ${userRequests.length} user requests for user ${requestBy}`);
-
-      return {
-        data: userRequests,
-        totalCount: userRequestsCount,
-        userRequestsCount: userRequestsCount,
-        paperRequestsCount: 0,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(userRequestsCount / limit),
-        hasNextPage: page * limit < userRequestsCount,
-        hasPrevPage: page > 1
-      };
-    } catch (error) {
-      throw new CustomError(500, "Error fetching user requests: " + error.message);
-    }
-  },
-
-  // Get user request by ID
-  getRequestById: async (requestId, userId = null) => {
-    try {
-      const filter = {
-        _id: requestId,
-        isDeleted: false
-      };
-
-      // If userId is provided, ensure user can only access their own requests
-      if (userId) {
-        filter.requestBy = userId;
-      }
-
-      const request = await UserRequest.findOne(filter)
-        .populate('requestBy', 'firstName lastName email')
-        .populate('adminResponse.respondedBy', 'name email')
-        .exec();
-
-      if (!request) {
-        throw new CustomError(404, "User request not found");
-      }
-
-      return request;
-    } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error fetching user request: " + error.message);
-    }
-  },
-
-  // Update user request
-  updateRequest: async (requestId, updateData, userId = null) => {
-    try {
-      const filter = {
-        _id: requestId,
-        isDeleted: false
-      };
-
-      // If userId is provided, ensure user can only update their own requests
-      if (userId) {
-        filter.requestBy = userId;
-      }
-
-      // Remove fields that shouldn't be updated directly by users
-      const { _id, requestBy, createdAt, updatedAt, adminResponse, ...validUpdateData } = updateData;
-
-      const updatedRequest = await UserRequest.findOneAndUpdate(
-        filter,
-        validUpdateData,
-        { new: true, runValidators: true }
-      )
-      .populate('requestBy', 'firstName lastName email')
-      .populate('adminResponse.respondedBy', 'name email')
-      .exec();
-
-      if (!updatedRequest) {
-        throw new CustomError(404, "User request not found");
-      }
-
-      return updatedRequest;
-    } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error updating user request: " + error.message);
-    }
-  },
-
-  // Soft delete user request
-  deleteRequest: async (requestId, userId = null) => {
-    try {
-      const filter = {
-        _id: requestId,
-        isDeleted: false
-      };
-
-      // If userId is provided, ensure user can only delete their own requests
-      if (userId) {
-        filter.requestBy = userId;
-      }
-
-      const deletedRequest = await UserRequest.findOneAndUpdate(
-        filter,
-        { 
-          isDeleted: true,
-          deletedAt: new Date()
-        },
-        { new: true }
-      ).exec();
-
-      if (!deletedRequest) {
-        throw new CustomError(404, "User request not found");
-      }
-
-      return deletedRequest;
-    } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error deleting user request: " + error.message);
-    }
-  },
-
-  // Update request status (for admin use)
-  updateRequestStatus: async (requestId, statusData) => {
-    try {
-      const { status, responseMessage, respondedBy } = statusData;
-
-      const updateData = {
-        status,
-        'adminResponse.responseMessage': responseMessage,
-        'adminResponse.respondedBy': respondedBy,
-        'adminResponse.responseDate': new Date()
-      };
-
-      const updatedRequest = await UserRequest.findOneAndUpdate(
-        { _id: requestId, isDeleted: false },
-        updateData,
-        { new: true, runValidators: true }
-      )
-      .populate('requestBy', 'firstName lastName email')
-      .populate('adminResponse.respondedBy', 'name email')
-      .exec();
-
-      if (!updatedRequest) {
-        throw new CustomError(404, "User request not found");
-      }
-
-      return updatedRequest;
-    } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error updating request status: " + error.message);
-    }
-  },
-
-  // Get request statistics
-  getRequestStatistics: async (userId = null) => {
-    try {
-      const matchStage = { isDeleted: false };
-      if (userId) {
-        matchStage.requestBy = userId;
-      }
-
-      const stats = await UserRequest.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: null,
-            totalRequests: { $sum: 1 },
-            pendingRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] }
-            },
-            approvedRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] }
-            },
-            rejectedRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
-            },
-            inProgressRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "In Progress"] }, 1, 0] }
-            }
-          }
-        }
-      ]);
-
-      // Get type statistics
-      const typeStats = await UserRequest.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: "$type",
-            count: { $sum: 1 }
-          }
-        }
+          .limit(limit)
+          .lean(),
+        UserRequest.countDocuments(query)
       ]);
 
       return {
-        ...stats[0] || {
-          totalRequests: 0,
-          pendingRequests: 0,
-          approvedRequests: 0,
-          rejectedRequests: 0,
-          inProgressRequests: 0
-        },
-        typeBreakdown: typeStats.reduce((acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        }, {})
+        requests,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount,
+          limit,
+          hasNextPage: page < Math.ceil(totalCount / limit),
+          hasPrevPage: page > 1
+        }
       };
     } catch (error) {
-      throw new CustomError(500, "Error fetching request statistics: " + error.message);
+      console.error("Error in getAllRequests:", error);
+      throw new CustomError(500, error.message || "Failed to fetch requests");
     }
   },
 
-  // Get all unfulfilled user requests for website (public view)
-  getAllUnfulfilledRequestsForWebsite: async (queryParams = {}) => {
+  // Get all unfulfilled requests for website (public)
+  getAllUnfulfilledRequestsForWebsite: async (options = {}) => {
     try {
       const {
         page = 1,
@@ -390,307 +242,448 @@ const userRequestService = {
         priority,
         sortBy = 'createdAt',
         sortOrder = 'desc'
-      } = queryParams;
+      } = options;
 
-      // Basic filter - exclude deleted records and fulfilled requests
-      const filter = { 
-        isDeleted: false,
-        isFulfilled: { $ne: true } // Only show unfulfilled requests on website
+      // Build query for unfulfilled requests
+      // Show approved requests that haven't been fulfilled yet
+      const query = {
+        status: 'Approved', // Only approved requests
+        isFulfilled: false, // Not yet fulfilled by community
+        isDeleted: false
       };
 
-      // Apply additional filters
+      // Add filters
       if (type) {
-        filter.type = type;
+        query.type = type;
       }
 
       if (priority) {
-        filter.priority = priority;
+        query.priority = priority;
       }
 
       if (search) {
-        filter.$or = [
+        query.$or = [
           { title: { $regex: search, $options: 'i' } },
           { description: { $regex: search, $options: 'i' } },
-          { 'labDetails.nature': { $regex: search, $options: 'i' } },
           { 'documentDetails.title': { $regex: search, $options: 'i' } },
-          { 'documentDetails.author': { $regex: search, $options: 'i' } },
-          { 'dataDetails.title': { $regex: search, $options: 'i' } }
+          { 'documentDetails.author': { $regex: search, $options: 'i' } }
         ];
       }
 
-      const sortOptions = {};
-      sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      // Build sort
+      const sort = {};
+      sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
       const skip = (page - 1) * limit;
 
-      // Get all user requests with student details
-      const [userRequests, totalCount] = await Promise.all([
-        UserRequest.find(filter)
-          .populate({
-            path: 'requestBy',
-            model: 'Student', // Lookup from students collection
-            select: 'firstName lastName email collegeName department graduationStatus profilePicture points'
-          })
-          .sort(sortOptions)
+      const [requests, totalCount] = await Promise.all([
+        UserRequest.find(query)
+          .populate('requestBy', 'firstName lastName email profilePicture')
+          .sort(sort)
           .skip(skip)
-          .limit(parseInt(limit))
-          .lean()
-          .exec(),
-        UserRequest.countDocuments(filter)
+          .limit(limit)
+          .lean(),
+        UserRequest.countDocuments(query)
       ]);
 
-      // Return all requests (removed filtering for inactive students)
-      const validRequests = userRequests.filter(request => request.requestBy !== null);
-
-      console.log(`Found ${validRequests.length} user requests for website`);
+      const totalPages = Math.ceil(totalCount / limit);
 
       return {
-        data: validRequests,
-        totalCount: totalCount,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCount / limit),
-        hasNextPage: page * limit < totalCount,
+        data: requests,
+        totalCount,
+        currentPage: page,
+        totalPages,
+        hasNextPage: page < totalPages,
         hasPrevPage: page > 1
       };
     } catch (error) {
-      throw new CustomError(500, "Error fetching user requests: " + error.message);
+      console.error("Error in getAllUnfulfilledRequestsForWebsite:", error);
+      throw new CustomError(500, error.message || "Failed to fetch unfulfilled requests");
     }
   },
 
-  // Get public request statistics for website
-  getPublicRequestStatistics: async () => {
+  // Get request by ID
+  getRequestById: async (requestId) => {
     try {
-      const stats = await UserRequest.aggregate([
-        {
-          $match: { isDeleted: false }
-        },
-        {
-          $group: {
-            _id: null,
-            totalRequests: { $sum: 1 },
-            pendingRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] }
-            },
-            inProgressRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "In Progress"] }, 1, 0] }
-            },
-            approvedRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] }
-            },
-            rejectedRequests: {
-              $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
-            }
-          }
-        }
-      ]);
-
-      const typeStats = await UserRequest.aggregate([
-        {
-          $match: { isDeleted: false }
-        },
-        {
-          $group: {
-            _id: "$type",
-            count: { $sum: 1 }
-          }
-        }
-      ]);
-
-      const priorityStats = await UserRequest.aggregate([
-        {
-          $match: { isDeleted: false }
-        },
-        {
-          $group: {
-            _id: "$priority",
-            count: { $sum: 1 }
-          }
-        }
-      ]);
-
-      return {
-        overview: stats[0] || {
-          totalRequests: 0,
-          pendingRequests: 0,
-          inProgressRequests: 0,
-          approvedRequests: 0,
-          rejectedRequests: 0
-        },
-        byType: typeStats.reduce((acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        }, {}),
-        byPriority: priorityStats.reduce((acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        }, {})
-      };
-    } catch (error) {
-      throw new CustomError(500, "Error fetching public request statistics: " + error.message);
-    }
-  },
-
-  // Get public request by ID (limited information for website)
-  getPublicRequestById: async (requestId) => {
-    try {
-      const request = await UserRequest.findOne({
-        _id: requestId,
-        isDeleted: false
-      })
-      .populate({
-        path: 'requestBy',
-        model: 'Student',
-        select: 'firstName lastName collegeName department graduationStatus profilePicture'
-      })
-      .select('-adminResponse -attachments') // Exclude sensitive admin data
-      .lean()
-      .exec();
+      const request = await UserRequest.findById(requestId)
+        .populate('requestBy', 'firstName lastName email profilePicture phoneNumber')
+        .populate('adminResponse.respondedBy', 'firstName lastName email')
+        .lean();
 
       if (!request) {
         throw new CustomError(404, "Request not found");
       }
 
-      if (!request.requestBy) {
-        throw new CustomError(404, "Request requester information not available");
+      return request;
+    } catch (error) {
+      console.error("Error in getRequestById:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to fetch request");
+    }
+  },
+
+  // Update request status
+  updateRequestStatus: async (requestId, updateData) => {
+    try {
+      const request = await UserRequest.findByIdAndUpdate(
+        requestId,
+        updateData,
+        { new: true, runValidators: true }
+      )
+        .populate('requestBy', 'firstName lastName email')
+        .populate('adminResponse.respondedBy', 'firstName lastName email');
+
+      if (!request) {
+        throw new CustomError(404, "Request not found");
       }
 
       return request;
     } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error fetching public request: " + error.message);
+      console.error("Error in updateRequestStatus:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to update request");
     }
   },
 
-  // Update fulfillment status
-  updateFulfillmentStatus: async (requestId, isFulfilled, userId = null) => {
+  // Delete request (soft delete)
+  deleteRequest: async (requestId) => {
     try {
-      const filter = {
-        _id: requestId,
-        isDeleted: false
-      };
+      const request = await UserRequest.findByIdAndUpdate(
+        requestId,
+        { isDeleted: true },
+        { new: true }
+      );
 
-      // If userId is provided, ensure user can only update their own requests
-      if (userId) {
-        filter.requestBy = userId;
+      if (!request) {
+        throw new CustomError(404, "Request not found");
       }
+
+      return { message: "Request deleted successfully" };
+    } catch (error) {
+      console.error("Error in deleteRequest:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to delete request");
+    }
+  },
+
+  // Fulfill a request
+  fulfillRequest: async (requestId, fulfillmentData) => {
+    try {
+      const { responseMessage, respondedBy, attachments } = fulfillmentData;
 
       const updateData = {
-        isFulfilled: isFulfilled
+        status: 'Approved',
+        'adminResponse.responseMessage': responseMessage,
+        'adminResponse.respondedBy': respondedBy,
+        'adminResponse.responseDate': new Date()
       };
 
-      // If user rejects the document, we might want to change status back to Pending
-      if (!isFulfilled) {
-        updateData.status = 'Pending';
-        // Optionally remove attachments if user rejects the document
-        updateData.attachments = [];
-        updateData.adminResponse = undefined;
+      if (attachments && attachments.length > 0) {
+        updateData.$push = { attachments: { $each: attachments } };
       }
 
-      const updatedRequest = await UserRequest.findOneAndUpdate(
-        filter,
+      const request = await UserRequest.findByIdAndUpdate(
+        requestId,
         updateData,
         { new: true, runValidators: true }
       )
-      .populate('requestBy', 'firstName lastName email')
-      .populate('adminResponse.respondedBy', 'name email')
-      .exec();
+        .populate('requestBy', 'firstName lastName email')
+        .populate('adminResponse.respondedBy', 'firstName lastName email');
 
-      if (!updatedRequest) {
-        throw new CustomError(404, "User request not found");
+      if (!request) {
+        throw new CustomError(404, "Request not found");
       }
 
-          // If request is fulfilled and it's a Document type request, add coins to fulfiller
-          if (isFulfilled && updatedRequest.type === 'Document') {
-            console.log('🪙 Checking coin addition for Document request:', {
-              requestId: updatedRequest._id,
-              requestType: updatedRequest.type,
-              adminResponse: updatedRequest.adminResponse,
-              hasRespondedBy: !!(updatedRequest.adminResponse?.respondedBy),
-              attachments: updatedRequest.attachments
-            });
-            
-            // For Document requests, we need to find the fulfiller
-            // The fulfiller could be in adminResponse.respondedBy or we need to find them from the attachments
-            let fulfillerId = null;
-            
-            if (updatedRequest.adminResponse?.respondedBy) {
-              fulfillerId = updatedRequest.adminResponse.respondedBy._id;
-              console.log('🪙 Found fulfiller from adminResponse.respondedBy:', fulfillerId);
-            } else if (updatedRequest.attachments && updatedRequest.attachments.length > 0) {
-              // If no respondedBy, we need to find the fulfiller from the paper request
-              // This happens when documents are found from the paper request system
-              console.log('🪙 No respondedBy found, checking attachments for fulfiller info');
-              
-              // For Document requests fulfilled through the paper request system,
-              // we need to find the actual fulfiller from the paper request
-              try {
-                // Find the paper request that matches this document
-                const paperRequest = await PaperRequest.findOne({
-                  'paperDetail.title': updatedRequest.documentDetails?.title,
-                  fileUrl: updatedRequest.attachments[0].fileUrl,
-                  isDelete: false
-                }).populate('requestBy', '_id firstName lastName');
-                
-                if (paperRequest && paperRequest.requestBy) {
-                  fulfillerId = paperRequest.requestBy._id;
-                  console.log('🪙 Found fulfiller from paper request:', {
-                    fulfillerId,
-                    fulfillerName: `${paperRequest.requestBy.firstName} ${paperRequest.requestBy.lastName}`
-                  });
-                } else {
-                  console.log('🪙 Could not find paper request for this document');
-                  // For now, let's add coins to a default fulfiller (this needs to be improved)
-                  fulfillerId = '68b09579dcb37e99cba81216'; // Default fulfiller ID for testing
-                  console.log('🪙 Using default fulfiller ID for testing:', fulfillerId);
-                }
-              } catch (error) {
-                console.error('🪙 Error finding fulfiller from paper request:', error);
-                // For now, let's add coins to a default fulfiller (this needs to be improved)
-                fulfillerId = '68b09579dcb37e99cba81216'; // Default fulfiller ID for testing
-                console.log('🪙 Using default fulfiller ID for testing:', fulfillerId);
-              }
-            }
-            
-            if (fulfillerId) {
-              try {
-                // Determine fulfiller type (student or expert)
-                const student = await Student.findById(fulfillerId);
-                const fulfillerType = student ? 'student' : 'expert';
-                
-                console.log('🪙 Adding coins to fulfiller for approved Document request:', {
-                  fulfillerId,
-                  fulfillerType,
-                  requestType: updatedRequest.type,
-                  requestId: updatedRequest._id,
-                  approvedBy: userId,
-                  isStudent: !!student
-                });
-
-                const coinResult = await CoinService.processRequestFulfillment({
-                  fulfillerId: fulfillerId.toString(),
-                  fulfillerType
-                });
-
-                if (coinResult.success) {
-                  console.log('✅ Coins added successfully to fulfiller:', coinResult.data.message);
-                } else {
-                  console.error('❌ Failed to add coins to fulfiller:', coinResult.message);
-                }
-              } catch (coinError) {
-                console.error('❌ Error processing coin reward for fulfillment:', coinError);
-                // Don't throw error here as the main fulfillment should still succeed
-              }
-            } else {
-              console.log('❌ No fulfiller ID found, cannot add coins');
-            }
-          }
-
-      return updatedRequest;
+      return request;
     } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw new CustomError(500, "Error updating fulfillment status: " + error.message);
+      console.error("Error in fulfillRequest:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to fulfill request");
+    }
+  },
+
+  // Confirm document fulfillment (user acknowledges they received the document)
+  // Update fulfillment status (wrapper for confirmFulfillment)
+  updateFulfillmentStatus: async (requestId, isFulfilled, userId) => {
+    try {
+      // Get the request details first to find who fulfilled it
+      const request = await UserRequest.findOne({
+        _id: requestId,
+        requestBy: userId
+      }).populate('requestBy', 'firstName lastName email');
+
+      if (!request) {
+        throw new CustomError(404, "Request not found");
+      }
+
+      // Find who uploaded the document by checking PaperRequest
+      let fulfillerId = null;
+      let fulfillerName = "Someone";
+      
+      try {
+        const paperRequest = await PaperRequest.findOne({ requestBy: requestId });
+        if (paperRequest && paperRequest.fulfilledBy) {
+          fulfillerId = paperRequest.fulfilledBy;
+          
+          // Get fulfiller's name
+          const fulfiller = await Student.findById(fulfillerId);
+          if (fulfiller) {
+            fulfillerName = `${fulfiller.firstName} ${fulfiller.lastName}`;
+          }
+        }
+      } catch (error) {
+        console.error('Error finding fulfiller:', error);
+      }
+
+      const requesterName = request.requestBy ? 
+        `${request.requestBy.firstName} ${request.requestBy.lastName}` : 
+        'Someone';
+      const requestTitle = request.title || request.documentDetails?.title || 'Your request';
+
+      if (isFulfilled) {
+        // If marking as fulfilled, use confirmFulfillment to award coins
+        const result = await userRequestService.confirmFulfillment(requestId, userId);
+        
+        // Send approval notification to fulfiller
+        if (fulfillerId) {
+          try {
+            await notificationService.createFulfillmentApprovedNotification({
+              fulfillerId: fulfillerId,
+              requesterName: requesterName,
+              requestTitle: requestTitle,
+              userRequestId: requestId,
+            });
+            console.log(`✅ Fulfillment approval notification sent to user ${fulfillerId}`);
+          } catch (notificationError) {
+            console.error('Error creating fulfillment approval notification:', notificationError);
+          }
+        }
+        
+        return result.request;
+      } else {
+        // If marking as not fulfilled, just update the status back to pending
+        const updatedRequest = await UserRequest.findOneAndUpdate(
+          {
+            _id: requestId,
+            requestBy: userId
+          },
+          {
+            isFulfilled: false,
+            status: 'Pending',
+            $unset: { 
+              'adminResponse.responseMessage': 1,
+              'adminResponse.respondedBy': 1,
+              'adminResponse.responseDate': 1
+            },
+            attachments: [] // Clear attachments
+          },
+          { new: true }
+        )
+          .populate('requestBy', 'firstName lastName email')
+          .populate('adminResponse.respondedBy', 'firstName lastName email');
+
+        if (!updatedRequest) {
+          throw new CustomError(404, "Request not found");
+        }
+
+        // Send rejection notification to fulfiller
+        if (fulfillerId) {
+          try {
+            await notificationService.createFulfillmentRejectedNotification({
+              fulfillerId: fulfillerId,
+              requesterName: requesterName,
+              requestTitle: requestTitle,
+              userRequestId: requestId,
+            });
+            console.log(`✅ Fulfillment rejection notification sent to user ${fulfillerId}`);
+          } catch (notificationError) {
+            console.error('Error creating fulfillment rejection notification:', notificationError);
+          }
+        }
+
+        return updatedRequest;
+      }
+    } catch (error) {
+      console.error("Error in updateFulfillmentStatus:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to update fulfillment status");
+    }
+  },
+
+  // Confirm document fulfillment (user acknowledges they received the document)
+  confirmFulfillment: async (requestId, userId) => {
+    try {
+      // Find the request
+      const request = await UserRequest.findOne({
+        _id: requestId,
+        requestBy: userId,
+        status: 'Approved',
+        isFulfilled: false
+      }).populate('adminResponse.respondedBy', 'firstName lastName email');
+
+      if (!request) {
+        throw new CustomError(404, "Request not found or already confirmed");
+      }
+
+      // Mark as fulfilled
+      request.isFulfilled = true;
+      await request.save();
+
+      // Award coins to the person who fulfilled the request
+      if (request.adminResponse && request.adminResponse.respondedBy) {
+        const fulfillerId = request.adminResponse.respondedBy._id || request.adminResponse.respondedBy;
+        
+        try {
+          // Award 10 coins for fulfilling a request
+          await CoinService.addCoins({
+            userId: fulfillerId,
+            amount: 10,
+            source: 'request_fulfillment',
+            description: `Fulfilled research request: "${request.title || request.documentDetails?.title || 'Document Request'}"`,
+            metadata: {
+              requestId: requestId,
+              requestType: request.type,
+              confirmedBy: userId
+            }
+          });
+
+          console.log(`✅ Awarded 10 coins to user ${fulfillerId} for fulfilling request ${requestId}`);
+        } catch (coinError) {
+          console.error('Error awarding coins:', coinError);
+          // Don't throw error - confirmation should succeed even if coin award fails
+        }
+      }
+
+      return {
+        success: true,
+        message: "Request fulfillment confirmed. Coins have been awarded to the contributor.",
+        request
+      };
+    } catch (error) {
+      console.error("Error in confirmFulfillment:", error);
+      throw new CustomError(error.status || 500, error.message || "Failed to confirm fulfillment");
+    }
+  },
+
+  // Get user's own requests
+  getUserRequests: async (userId, options = {}) => {
+    try {
+      const { page = 1, limit = 10, status, type } = options;
+
+      const query = {
+        requestBy: userId,
+        isDeleted: false
+      };
+
+      if (status) {
+        query.status = status;
+      }
+
+      if (type) {
+        query.type = type;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [requests, totalCount] = await Promise.all([
+        UserRequest.find(query)
+          .populate('adminResponse.respondedBy', 'firstName lastName email')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        UserRequest.countDocuments(query)
+      ]);
+
+      return {
+        requests,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount,
+          limit
+        }
+      };
+    } catch (error) {
+      console.error("Error in getUserRequests:", error);
+      throw new CustomError(500, error.message || "Failed to fetch user requests");
+    }
+  },
+
+  // Get statistics
+  getStatistics: async () => {
+    try {
+      const [
+        totalRequests,
+        pendingRequests,
+        approvedRequests,
+        rejectedRequests,
+        inProgressRequests
+      ] = await Promise.all([
+        UserRequest.countDocuments({ isDeleted: false }),
+        UserRequest.countDocuments({ status: 'Pending', isDeleted: false }),
+        UserRequest.countDocuments({ status: 'Approved', isDeleted: false }),
+        UserRequest.countDocuments({ status: 'Rejected', isDeleted: false }),
+        UserRequest.countDocuments({ status: 'In Progress', isDeleted: false })
+      ]);
+
+      return {
+        total: totalRequests,
+        pending: pendingRequests,
+        approved: approvedRequests,
+        rejected: rejectedRequests,
+        inProgress: inProgressRequests
+      };
+    } catch (error) {
+      console.error("Error in getStatistics:", error);
+      throw new CustomError(500, error.message || "Failed to fetch statistics");
+    }
+  },
+
+  // Search requests
+  searchRequests: async (searchTerm, options = {}) => {
+    try {
+      const { page = 1, limit = 10, type, status } = options;
+
+      const query = {
+        isDeleted: false,
+        $or: [
+          { title: { $regex: searchTerm, $options: 'i' } },
+          { description: { $regex: searchTerm, $options: 'i' } },
+          { 'documentDetails.title': { $regex: searchTerm, $options: 'i' } },
+          { 'documentDetails.author': { $regex: searchTerm, $options: 'i' } }
+        ]
+      };
+
+      if (type) {
+        query.type = type;
+      }
+
+      if (status) {
+        query.status = status;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [requests, totalCount] = await Promise.all([
+        UserRequest.find(query)
+          .populate('requestBy', 'firstName lastName email')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        UserRequest.countDocuments(query)
+      ]);
+
+      return {
+        requests,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit),
+          totalCount,
+          limit
+        }
+      };
+    } catch (error) {
+      console.error("Error in searchRequests:", error);
+      throw new CustomError(500, error.message || "Failed to search requests");
     }
   }
 };
 
-module.exports = userRequestService; 
+module.exports = userRequestService;

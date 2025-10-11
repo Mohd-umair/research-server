@@ -1,6 +1,7 @@
 const { verifyToken } = require('../../Utils/utils');
 const teacherCtrl = require('./teacherCtrl')
 const { conversationController } = require('../Chats/ConversationController');
+const notificationCtrl = require('../Notifications/notificationCtrl');
 
 const router = require('express').Router();
 
@@ -28,6 +29,13 @@ router.put("/conversations/:conversationId/read", verifyToken, conversationContr
 router.put("/conversations/:conversationId/status", verifyToken, conversationController.updateConversationStatus);
 router.put("/conversations/:conversationId/archive", verifyToken, conversationController.archiveConversation);
 router.delete("/conversations/:conversationId", verifyToken, conversationController.deleteConversation);
+
+// Teacher notification routes
+router.get("/notifications", verifyToken, notificationCtrl.getNotifications);
+router.get("/notifications/unread-count", verifyToken, notificationCtrl.getUnreadCount);
+router.put("/notifications/:id/read", verifyToken, notificationCtrl.markAsRead);
+router.put("/notifications/mark-all-read", verifyToken, notificationCtrl.markAllAsRead);
+router.delete("/notifications/:id", verifyToken, notificationCtrl.deleteNotification);
 
 const teacherRouter = router
 
