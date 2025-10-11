@@ -1,6 +1,7 @@
 const UserRequest = require('../../UserRequest/userRequestModel');
 const CustomError = require('../../../Errors/CustomError');
 const mongoose = require('mongoose');
+const notificationService = require('../../Notifications/notificationService');
 
 /**
  * Get all user requests with admin filtering and pagination
@@ -197,6 +198,83 @@ const updateUserRequestStatus = async (req, res, next) => {
     )
     .populate('requestBy', 'firstName lastName email collegeName department')
     .populate('adminResponse.respondedBy', 'fullName email role');
+
+    // If requestBy is not populated, fetch it separately
+    if (!updatedRequest.requestBy) {
+      const originalRequest = await UserRequest.findById(id);
+      if (originalRequest?.requestBy) {
+        updatedRequest.requestBy = originalRequest.requestBy;
+      }
+    }
+
+    // Send notification to request creator when status is Approved
+    if (status === 'Approved' && updatedRequest.requestBy) {
+      try {
+        const requestCreatorId = updatedRequest.requestBy._id || updatedRequest.requestBy;
+        const requestTitle = updatedRequest.title || updatedRequest.documentDetails?.title || 'Your request';
+        const adminName = currentAdmin.fullName || currentAdmin.email || 'Admin';
+
+        await notificationService.createNotification({
+          recipient: requestCreatorId,
+          recipientModel: 'Teacher', // Students/Users are stored in Teacher model
+          type: 'REQUEST_APPROVED',
+          title: 'Request Approved! 🎉',
+          message: `Your request "${requestTitle}" has been approved. We will notify you about further updates.`,
+          relatedEntity: {
+            entityType: 'UserRequest',
+            entityId: id
+          },
+          triggeredBy: currentAdmin._id,
+          priority: 'high',
+          actionUrl: `/user-dashboard/request`,
+          metadata: {
+            requestTitle,
+            requestType: updatedRequest.type,
+            approvedBy: adminName,
+            responseMessage: responseMessage || `Status updated to ${status}`
+          }
+        });
+
+        console.log(`[NOTIFICATION SENT] Request approval notification sent to user: ${requestCreatorId}`);
+      } catch (notificationError) {
+        // Log error but don't fail the status update
+        console.error('[NOTIFICATION ERROR] Failed to send request approval notification:', notificationError);
+      }
+    }
+
+    // Send notification to request creator when status is Rejected
+    if (status === 'Rejected' && updatedRequest.requestBy) {
+      try {
+        const requestCreatorId = updatedRequest.requestBy._id || updatedRequest.requestBy;
+        const requestTitle = updatedRequest.title || updatedRequest.documentDetails?.title || 'Your request';
+        const adminName = currentAdmin.fullName || currentAdmin.email || 'Admin';
+
+        await notificationService.createNotification({
+          recipient: requestCreatorId,
+          recipientModel: 'Teacher',
+          type: 'REQUEST_REJECTED',
+          title: 'Request Status Update',
+          message: `Your request "${requestTitle}" has been reviewed. ${responseMessage || 'Please check the details for more information.'}`,
+          relatedEntity: {
+            entityType: 'UserRequest',
+            entityId: id
+          },
+          triggeredBy: currentAdmin._id,
+          priority: 'medium',
+          actionUrl: `/user-dashboard/request`,
+          metadata: {
+            requestTitle,
+            requestType: updatedRequest.type,
+            rejectedBy: adminName,
+            responseMessage: responseMessage || `Status updated to ${status}`
+          }
+        });
+
+        console.log(`[NOTIFICATION SENT] Request rejection notification sent to user: ${requestCreatorId}`);
+      } catch (notificationError) {
+        console.error('[NOTIFICATION ERROR] Failed to send request rejection notification:', notificationError);
+      }
+    }
 
     // Log the action
     console.log(`[USER REQUEST STATUS UPDATED] ${new Date().toISOString()} - Request: ${id} - Status: ${status} - By: ${currentAdmin.email} (${currentAdmin.role})`);
