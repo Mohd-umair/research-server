@@ -20,52 +20,52 @@ cloudinary.config({
 const app = express();
 
 
-// const corsOrigins = [
-//   "http://localhost:4200", 
-//   "https://localhost:4200", 
-//   "http://localhost:4201", 
-//   "https://localhost:4201",
-//   "http://localhost:3000", 
-//   "http://localhost:8080",
-//   "http://localhost:3001",
-//   "https://researchdecode.com", 
-//   "https://www.researchdecode.com", 
-//   "https://admin.researchdecode.com",
-//   "https://srv695649.hstgr.cloud",
-//   "https://srv695649.hstgr.cloud:4200",
-//   "https://srv695649.hstgr.cloud:4201",
-//   "http://srv695649.hstgr.cloud",
-//   "http://srv695649.hstgr.cloud:4200", 
-//   "http://srv695649.hstgr.cloud:4201",
-//   "http://46.202.166.229",
-//   "http://46.202.166.229:4200",
-//   "http://46.202.166.229:4201"
-// ];
-
-//     app.use(cors({
-//       origin: function (origin, callback) {
-//         // Allow requests with no origin (like curl, postman)
-//         if (!origin) return callback(null, true);
-//         if (corsOrigins.indexOf(origin) !== -1) {
-//           callback(null, true);
-//         } else {
-//           console.log('CORS blocked origin:', origin);
-//           callback(new Error('Not allowed by CORS'));
-//         }
-//       },
-//       credentials: true,
-//       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-//       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-//       exposedHeaders: ['Content-Range', 'X-Content-Range'],
-//       maxAge: 86400 // 24 hours
-//     }));
+const corsOrigins = [
+  "http://localhost:4200", 
+  "https://localhost:4200", 
+  "http://localhost:4201", 
+  "https://localhost:4201",
+  "http://localhost:3000", 
+  "http://localhost:8080",
+  "http://localhost:3001",
+  "https://researchdecode.com", 
+  "https://www.researchdecode.com", 
+  "https://admin.researchdecode.com",
+  "https://srv695649.hstgr.cloud",
+  "https://srv695649.hstgr.cloud:4200",
+  "https://srv695649.hstgr.cloud:4201",
+  "http://srv695649.hstgr.cloud",
+  "http://srv695649.hstgr.cloud:4200", 
+  "http://srv695649.hstgr.cloud:4201",
+  "http://46.202.166.229",
+  "http://46.202.166.229:4200",
+  "http://46.202.166.229:4201"
+];
 
     app.use(cors({
-      origin: '*', // allow all origins temporarily
-      credentials: true, // you can disable credentials for testing
+      origin: function (origin, callback) {
+        // Allow requests with no origin (like curl, postman)
+        if (!origin) return callback(null, true);
+        if (corsOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          console.log('CORS blocked origin:', origin);
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 86400 // 24 hours
     }));
-// Handle preflight requests
-app.options('*', cors());
+
+//     app.use(cors({
+//       origin: '*', // allow all origins temporarily
+//       credentials: true, // you can disable credentials for testing
+//     }));
+// // Handle preflight requests
+// app.options('*', cors());
 
 // Parse JSON and URL encoded data for all routes EXCEPT upload routes
 app.use('/admin/upload', (req, res, next) => {

@@ -348,6 +348,64 @@ const paymentService = {
       const booking = await ConsultancyModel.create(bookingData);
       console.log("Payment Service: Booking created successfully:", booking._id);
 
+      // Create payment request automatically for the teacher
+      try {
+        const paymentRequestService = require("../PaymentRequests/paymentRequestService");
+        const ConsultancyCardModel = require("../ConsultancyCard/consultancyCardModel");
+        const StudentModel = require("../Students/studentModel");
+        const notificationService = require("../Notifications/notificationService");
+        
+        console.log("Payment Service: Creating automatic payment request...");
+        
+        // Get consultancy card details
+        const consultancyCard = await ConsultancyCardModel.findById(consultancyId);
+        const student = await StudentModel.findById(studentId);
+        
+        if (consultancyCard && student) {
+          const paymentRequestData = {
+            consultancyId: booking._id, // Use the booking ID
+            teacherId: teacherId,
+            studentId: studentId,
+            amount: payment.amount,
+            consultancyTitle: consultancyCard.title || 'Consultancy Session',
+            studentName: `${student.firstName} ${student.lastName}`
+          };
+          
+          console.log("Payment Service: Creating payment request with data:", paymentRequestData);
+          const paymentRequest = await paymentRequestService.create(paymentRequestData);
+          console.log("Payment Service: Payment request created successfully:", paymentRequest._id);
+
+          // Send booking notification to the teacher
+          try {
+            // Get teacher information
+            const TeacherModel = require("../Teachers/teacherModel");
+            const teacher = await TeacherModel.findById(teacherId);
+            
+            if (teacher) {
+              const bookingNotification = await notificationService.createConsultancyBookingNotification({
+                teacherId: teacherId,
+                teacherName: `${teacher.firstName} ${teacher.lastName}`,
+                studentId: studentId,
+                studentName: `${student.firstName} ${student.lastName}`,
+                consultancyTitle: consultancyCard.title,
+              });
+              console.log("Payment Service: Booking notification sent to teacher:", teacher.email);
+            }
+          } catch (notificationError) {
+            console.error("Payment Service: Failed to send booking notification:", notificationError);
+            // Don't fail the payment process if notification fails
+          }
+        } else {
+          console.log("Payment Service: Could not create payment request - missing consultancy card or student data");
+          console.log("Payment Service: ConsultancyCard found:", !!consultancyCard);
+          console.log("Payment Service: Student found:", !!student);
+        }
+      } catch (paymentRequestError) {
+        console.error("Payment Service: Failed to create payment request:", paymentRequestError);
+        console.error("Payment Service: Payment request error details:", paymentRequestError.message);
+        // Don't fail the payment process if payment request creation fails
+      }
+
       console.log("Payment Service: Consultancy payment verified, earnings created, and booking created");
       return { payment, booking };
     } catch (error) {

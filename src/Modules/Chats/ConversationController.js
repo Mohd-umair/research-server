@@ -191,19 +191,23 @@ const conversationController = {
         decodedUser
       });
       
+      
       // Find the recipient (other participant)
-      const otherParticipant = conversation.participants.find(p => 
-        p.user.toString() !== decodedUser.id
-      );
+      const otherParticipant = conversation.participants.find(p => {
+        if (!p.user) return false; // Skip null users
+        const participantId = p.user._id || p.user;
+        return participantId.toString() !== decodedUser.id;
+      });
       
       if (!otherParticipant) {
         return res.status(400).json({ msg: "Recipient not found in conversation" });
       }
       
+      
       const messageData = {
         conversationId,
         sender: decodedUser.id,
-        recipient: otherParticipant.user,
+        recipient: otherParticipant.user._id || otherParticipant.user,
         message: content,
         messageType,
         attachment,
@@ -212,6 +216,55 @@ const conversationController = {
       };
       
       const savedMessage = await chatService.createChats(messageData);
+      
+      // Send notification to the recipient about the new message
+      
+      try {
+        const notificationService = require("../Notifications/notificationService");
+        
+        // Get sender information
+        let senderName = 'Someone';
+        
+        if (decodedUser.userType === 'USER') {
+          // Sender is a student
+          const StudentModel = require("../Students/studentModel");
+          const student = await StudentModel.findById(decodedUser.id);
+          if (student) {
+            senderName = `${student.firstName} ${student.lastName}`;
+          }
+        } else {
+          // Sender is a teacher/expert
+          const TeacherModel = require("../Teachers/teacherModel");
+          const teacher = await TeacherModel.findById(decodedUser.id);
+          if (teacher) {
+            senderName = `${teacher.firstName} ${teacher.lastName}`;
+          }
+        }
+        
+        // Handle recipient - if user is unpopulated, we need to manually fetch details for notification
+        let recipientId = otherParticipant.user._id || otherParticipant.user;
+        
+        // Determine recipient type
+        const recipientType = otherParticipant.userModel === 'Profile' ? 'teacher' : 'student';
+        
+        // Create message preview (first 50 characters)
+        const messagePreview = content.length > 50 ? content.substring(0, 50) + '...' : content;
+        
+        const notificationData = {
+          recipientId: recipientId,
+          recipientType: recipientType,
+          senderName: senderName,
+          senderId: decodedUser.id,
+          messagePreview: messagePreview,
+          conversationId: conversationId
+        };
+        
+        const notification = await notificationService.createMessageReceivedNotification(notificationData);
+        
+      } catch (notificationError) {
+        console.error('Failed to send message notification:', notificationError.message);
+        // Don't fail the message sending if notification fails
+      }
       
       return successResponse({
         res,

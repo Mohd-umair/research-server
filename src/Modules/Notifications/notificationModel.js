@@ -24,10 +24,17 @@ const notificationSchema = new mongoose.Schema(
         "REQUEST_REJECTED",
         "FULFILLMENT_APPROVED",
         "FULFILLMENT_REJECTED",
+        "TEACHER_APPROVED",
+        "TEACHER_REJECTED",
+        "CONSULTANCY_APPROVED",
+        "CONSULTANCY_COMPLETED",
+        "CONSULTANCY_BOOKED",
         "NEW_REQUEST",
         "NEW_MESSAGE",
+        "MESSAGE_RECEIVED",
         "PAYMENT_RECEIVED",
         "SYSTEM_ALERT",
+        "COLLABORATION_CREATED",
       ],
       required: true,
     },
@@ -46,7 +53,7 @@ const notificationSchema = new mongoose.Schema(
     relatedEntity: {
       entityType: {
         type: String,
-        enum: ["UserRequest", "PaperRequest", "Payment", "Message", "System"],
+        enum: ["UserRequest", "PaperRequest", "Payment", "Message", "System", "Collaboration"],
       },
       entityId: {
         type: mongoose.Schema.Types.ObjectId,

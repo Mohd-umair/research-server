@@ -6,6 +6,39 @@ const model = new DatabaseService(Collaboration);
 const collaborationService = {
   createCollaboration: async (data) => {
     const newCollaboration = await model.save(data);
+    
+    // Send notifications to all users about the new collaboration
+    try {
+      const notificationService = require("../Notifications/notificationService");
+      
+      // Get creator information
+      let creatorName = 'Someone';
+      if (data.userType === 'USER') {
+        const StudentModel = require("../Students/studentModel");
+        const student = await StudentModel.findById(data.createdBy);
+        if (student) {
+          creatorName = `${student.firstName} ${student.lastName}`;
+        }
+      } else {
+        const TeacherModel = require("../Teachers/teacherModel");
+        const teacher = await TeacherModel.findById(data.createdBy);
+        if (teacher) {
+          creatorName = `${teacher.firstName} ${teacher.lastName}`;
+        }
+      }
+      
+      await notificationService.createCollaborationCreatedNotification({
+        collaborationId: newCollaboration._id,
+        collaborationTitle: newCollaboration.title,
+        creatorName: creatorName,
+        creatorId: data.createdBy
+      });
+      
+    } catch (notificationError) {
+      console.error('Failed to send collaboration creation notifications:', notificationError.message);
+      // Don't fail the collaboration creation if notification fails
+    }
+    
     return newCollaboration;
   },
 

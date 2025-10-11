@@ -129,6 +129,259 @@ const notificationService = {
   }),
 
   /**
+   * Create notification for teacher approval
+   */
+  createTeacherApprovalNotification: serviceHandler(async (data) => {
+    console.log(`[DEBUG] createTeacherApprovalNotification called with data:`, data);
+    const { teacherId, teacherName, adminId } = data;
+
+    console.log(`[DEBUG] Creating notification for teacher: ${teacherName} (ID: ${teacherId})`);
+    
+    const notification = await notificationService.createNotification({
+      recipient: teacherId,
+      recipientModel: "Teacher",
+      type: "TEACHER_APPROVED",
+      title: "Account Approved! 🎉",
+      message: "Welcome aboard! Your eSupervisor account has been approved. You can now start creating project cards and offering your expertise.",
+      triggeredBy: adminId,
+      priority: "high",
+      actionUrl: `/user-dashboard`,
+      metadata: {
+        teacherName,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      },
+    });
+
+    console.log(`[DEBUG] Notification created successfully: ${notification._id}`);
+    return notification;
+  }),
+
+  /**
+   * Create notification for teacher rejection
+   */
+  createTeacherRejectionNotification: serviceHandler(async (data) => {
+    console.log(`[DEBUG] createTeacherRejectionNotification called with data:`, data);
+    const { teacherId, teacherName, adminId, rejectionReasons } = data;
+
+    console.log(`[DEBUG] Creating rejection notification for teacher: ${teacherName} (ID: ${teacherId})`);
+    
+    // Create a user-friendly rejection message
+    const reasonsText = rejectionReasons && rejectionReasons.length > 0 
+      ? ` Reasons: ${rejectionReasons.join(', ')}.` 
+      : '';
+    
+    const notification = await notificationService.createNotification({
+      recipient: teacherId,
+      recipientModel: "Teacher",
+      type: "TEACHER_REJECTED",
+      title: "Application Update",
+      message: `Your eSupervisor account wasn't approved. You can reapply after updating your profile.${reasonsText}`,
+      triggeredBy: adminId,
+      priority: "high",
+      actionUrl: `/user-dashboard`,
+      metadata: {
+        teacherName,
+        rejectedBy: adminId,
+        rejectedAt: new Date(),
+        rejectionReasons: rejectionReasons || [],
+      },
+    });
+
+    console.log(`[DEBUG] Rejection notification created successfully: ${notification._id}`);
+    return notification;
+  }),
+
+  /**
+   * Create notification for consultancy approval
+   */
+  createConsultancyApprovalNotification: serviceHandler(async (data) => {
+    console.log(`[DEBUG] createConsultancyApprovalNotification called with data:`, data);
+    const { teacherId, teacherName, adminId, consultancyTitle } = data;
+
+    console.log(`[DEBUG] Creating consultancy approval notification for teacher: ${teacherName} (ID: ${teacherId})`);
+    
+    const notification = await notificationService.createNotification({
+      recipient: teacherId,
+      recipientModel: "Teacher",
+      type: "CONSULTANCY_APPROVED",
+      title: "Consultancy Card Approved! 🎉",
+      message: "Your consultancy card is live! Clients can now discover and book your services.",
+      triggeredBy: adminId,
+      priority: "high",
+      actionUrl: `/dashboard/consultancy`,
+      metadata: {
+        teacherName,
+        consultancyTitle: consultancyTitle || 'Consultancy Card',
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      },
+    });
+
+    console.log(`[DEBUG] Consultancy approval notification created successfully: ${notification._id}`);
+    return notification;
+  }),
+
+  /**
+   * Create notification for consultancy completion
+   */
+  createConsultancyCompletionNotification: serviceHandler(async (data) => {
+    const { teacherId, teacherName, studentId, studentName, consultancyTitle } = data;
+    
+    const notification = await notificationService.createNotification({
+      recipient: teacherId,
+      recipientModel: "Teacher",
+      type: "CONSULTANCY_COMPLETED",
+      title: "Project marked as completed by the student.",
+      message: `${studentName} has marked their consultancy project${consultancyTitle ? ` "${consultancyTitle}"` : ''} as completed. You can now review the work and request payment.`,
+      triggeredBy: studentId,
+      priority: "high",
+      actionUrl: `/dashboard/expert-bookings`,
+      metadata: {
+        teacherName,
+        studentName,
+        studentId,
+        consultancyTitle: consultancyTitle || 'Consultancy Session',
+        completedAt: new Date(),
+      },
+    });
+
+    return notification;
+  }),
+
+  /**
+   * Create notification for new consultancy booking
+   */
+  createConsultancyBookingNotification: serviceHandler(async (data) => {
+    const { teacherId, teacherName, studentId, studentName, consultancyTitle } = data;
+    
+    const notification = await notificationService.createNotification({
+      recipient: teacherId,
+      recipientModel: "Teacher",
+      type: "CONSULTANCY_BOOKED",
+      title: "You've got a new booking request! 🎉",
+      message: `${studentName} has booked your consultancy${consultancyTitle ? ` "${consultancyTitle}"` : ''}. Check your bookings to accept or manage this request.`,
+      triggeredBy: studentId,
+      priority: "high",
+      actionUrl: `/dashboard/expert-bookings`,
+      metadata: {
+        teacherName,
+        studentName,
+        studentId,
+        consultancyTitle: consultancyTitle || 'Consultancy Session',
+        bookedAt: new Date(),
+      },
+    });
+
+    return notification;
+  }),
+
+  /**
+   * Create notification for new message received
+   */
+  createMessageReceivedNotification: serviceHandler(async (data) => {
+    const { recipientId, recipientType, senderName, senderId, messagePreview, conversationId } = data;
+    
+    const notification = await notificationService.createNotification({
+      recipient: recipientId,
+      recipientModel: recipientType === 'teacher' ? "Teacher" : "Student",
+      type: "MESSAGE_RECEIVED",
+      title: "You've received a new message",
+      message: `${senderName} sent you a message${messagePreview ? `: "${messagePreview}"` : '.'}`,
+      triggeredBy: senderId,
+      priority: "medium",
+      actionUrl: `/dashboard/chat?conversation=${conversationId}`,
+      metadata: {
+        senderName,
+        senderId,
+        conversationId,
+        messagePreview: messagePreview || '',
+        receivedAt: new Date(),
+      },
+    });
+
+    return notification;
+  }),
+
+  /**
+   * Create notification for new collaboration created
+   */
+  createCollaborationCreatedNotification: serviceHandler(async (data) => {
+    const { collaborationId, collaborationTitle, creatorName, creatorId } = data;
+    
+    // Get all active students and teachers to notify
+    const StudentModel = require("../Students/studentModel");
+    const TeacherModel = require("../Teachers/teacherModel");
+    
+    const [students, teachers] = await Promise.all([
+      StudentModel.find({ isDelete: false, isActive: true }).select('_id'),
+      TeacherModel.find({ isDelete: false, isActive: true }).select('_id')
+    ]);
+    
+    const notifications = [];
+    
+    // Create notifications for all students
+    for (const student of students) {
+      // Don't notify the creator if they're a student
+      if (student._id.toString() === creatorId) continue;
+      
+      const notification = await notificationService.createNotification({
+        recipient: student._id,
+        recipientModel: "Student",
+        type: "COLLABORATION_CREATED",
+        title: "New Collaboration Available",
+        message: `Someone is looking for collaborators on project "${collaborationTitle}".`,
+        triggeredBy: creatorId,
+        priority: "medium",
+        actionUrl: `/dashboard/collaborations/${collaborationId}`,
+        relatedEntity: {
+          entityType: "Collaboration",
+          entityId: collaborationId
+        },
+        metadata: {
+          collaborationTitle,
+          creatorName,
+          creatorId,
+          createdAt: new Date(),
+        },
+      });
+      
+      notifications.push(notification);
+    }
+    
+    // Create notifications for all teachers
+    for (const teacher of teachers) {
+      // Don't notify the creator if they're a teacher
+      if (teacher._id.toString() === creatorId) continue;
+      
+      const notification = await notificationService.createNotification({
+        recipient: teacher._id,
+        recipientModel: "Teacher",
+        type: "COLLABORATION_CREATED",
+        title: "New Collaboration Available",
+        message: `Someone is looking for collaborators on project "${collaborationTitle}".`,
+        triggeredBy: creatorId,
+        priority: "medium",
+        actionUrl: `/dashboard/collaborations/${collaborationId}`,
+        relatedEntity: {
+          entityType: "Collaboration",
+          entityId: collaborationId
+        },
+        metadata: {
+          collaborationTitle,
+          creatorName,
+          creatorId,
+          createdAt: new Date(),
+        },
+      });
+      
+      notifications.push(notification);
+    }
+
+    return notifications;
+  }),
+
+  /**
    * Get all notifications for a user
    */
   getUserNotifications: serviceHandler(async (userId, options = {}) => {

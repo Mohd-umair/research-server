@@ -334,6 +334,12 @@ router.put('/teachers/:id/approve',
   verifyAdminToken,
   // requireModerator,
   // // logAdminAction,
+  (req, res, next) => {
+    console.log(`[ROUTE DEBUG] PUT /admin/teachers/${req.params.id}/approve called`);
+    console.log(`[ROUTE DEBUG] Admin:`, req.admin?.email || 'Unknown');
+    console.log(`[ROUTE DEBUG] Body:`, req.body);
+    next();
+  },
   teacherController.approveTeacher
 );
 
@@ -346,6 +352,12 @@ router.put('/teachers/:id/reject',
   verifyAdminToken,
   requireModerator,
   // logAdminAction,
+  (req, res, next) => {
+    console.log(`[ROUTE DEBUG] PUT /admin/teachers/${req.params.id}/reject called`);
+    console.log(`[ROUTE DEBUG] Admin:`, req.admin?.email || 'Unknown');
+    console.log(`[ROUTE DEBUG] Body:`, req.body);
+    next();
+  },
   teacherController.rejectTeacher
 );
 
@@ -538,6 +550,12 @@ router.put('/consultancies/:id/approve',
   verifyAdminToken,
   requireRole(['SuperAdmin', 'Moderator']),
   // // logAdminAction,
+  (req, res, next) => {
+    console.log(`[ROUTE DEBUG] PUT /admin/consultancies/${req.params.id}/approve called`);
+    console.log(`[ROUTE DEBUG] Admin:`, req.admin?.email || 'Unknown');
+    console.log(`[ROUTE DEBUG] Body:`, req.body);
+    next();
+  },
   consultancyController.approveConsultancy
 );
 

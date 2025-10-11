@@ -1,6 +1,7 @@
 const ConsultancyCard = require('../../ConsultancyCard/consultancyCardModel');
 const CustomError = require('../../../Errors/CustomError');
 const mongoose = require('mongoose');
+const notificationService = require('../../Notifications/notificationService');
 
 /**
  * Get all consultancies for admin management
@@ -157,6 +158,10 @@ const getConsultancyById = async (req, res, next) => {
  * PUT /api/admin/consultancies/:id/approve
  */
 const approveConsultancy = async (req, res, next) => {
+  console.log(`[CONTROLLER DEBUG] approveConsultancy function called for ID: ${req.params.id}`);
+  console.log(`[CONTROLLER DEBUG] Admin: ${req.admin?.email || 'Unknown'}`);
+  console.log(`[CONTROLLER DEBUG] Request body:`, req.body);
+  
   try {
     const { id } = req.params;
     const { comments = '' } = req.body;
@@ -189,6 +194,24 @@ const approveConsultancy = async (req, res, next) => {
       .populate('teacherId', 'firstName lastName email')
       .populate('approvedBy', 'fullName email')
       .lean();
+
+    // Send notification to the consultancy owner
+    console.log(`[DEBUG] About to send consultancy approval notification for teacher: ${updatedConsultancy.teacherId?.email} (ID: ${updatedConsultancy.teacherId?._id})`);
+    try {
+      const notification = await notificationService.createConsultancyApprovalNotification({
+        teacherId: updatedConsultancy.teacherId._id,
+        teacherName: `${updatedConsultancy.teacherId.firstName} ${updatedConsultancy.teacherId.lastName}`,
+        adminId: req.admin._id,
+        consultancyTitle: updatedConsultancy.title || 'Consultancy Card',
+      });
+      console.log(`[NOTIFICATION SENT] Consultancy approval notification sent to: ${updatedConsultancy.teacherId.email}`);
+      console.log(`[NOTIFICATION DETAILS] ID: ${notification._id}, Title: ${notification.title}`);
+    } catch (notificationError) {
+      console.error('❌ Failed to send consultancy approval notification:', notificationError);
+      console.error('❌ Error details:', notificationError.message);
+      console.error('❌ Stack trace:', notificationError.stack);
+      // Don't fail the approval process if notification fails
+    }
 
     // Log the action
     console.log(`[ADMIN ACTION] ${new Date().toISOString()} - Consultancy approved: ${id} - By: ${req.admin.email} (${req.admin.role})`);
