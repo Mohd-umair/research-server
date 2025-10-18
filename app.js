@@ -29,7 +29,10 @@ const corsOrigins = [
   "http://localhost:8080",
   "http://localhost:3001",
   "https://researchdecode.com", 
-  "https://www.researchdecode.com", 
+    "http://researchdecode.com", 
+  "https://www.researchdecode.com",
+    "http://www.researchdecode.com", 
+ 
   "https://admin.researchdecode.com",
   "https://srv695649.hstgr.cloud",
   "https://srv695649.hstgr.cloud:4200",
