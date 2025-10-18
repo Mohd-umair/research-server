@@ -181,14 +181,89 @@ const collaborationService = {
       ];
     }
 
-    const savedData = await model.getAllDocuments(query, { skip, limit });
-    const totalCount = await model.totalCounts(query);
+    // Fetch from both Collaboration (student) model and TeacherCollaboration model
+    const TeacherCollaboration = require('./teacherCollaborationModel');
+    
+    let savedData = [];
+    let totalCount = 0;
+    
+    console.log('[COLLABORATION SERVICE] Fetching collaborations for admin with filters:', { userType, isApproved, search });
+    
+    // If userType filter is applied, fetch from appropriate model only
+    if (userType === 'USER') {
+      // Only fetch from student collaborations
+      console.log('[COLLABORATION SERVICE] Fetching USER collaborations only');
+      savedData = await model.getAllDocuments(query, { skip, limit });
+      totalCount = await model.totalCounts(query);
+    } else if (userType === 'TEACHER') {
+      // Only fetch from teacher collaborations
+      console.log('[COLLABORATION SERVICE] Fetching TEACHER collaborations only');
+      const teacherQuery = { isDeleted: false };
+      if (search) {
+        teacherQuery.$or = [
+          { title: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ];
+      }
+      savedData = await TeacherCollaboration.find(teacherQuery)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      totalCount = await TeacherCollaboration.countDocuments(teacherQuery);
+      
+      console.log('[COLLABORATION SERVICE] Found', savedData.length, 'teacher collaborations');
+      
+      // Add metadata for consistency with student collaborations
+      savedData = savedData.map(collab => ({
+        ...collab,
+        userType: 'TEACHER',
+        createdByModel: 'Teacher',
+        isApproved: true, // Teacher collaborations don't require approval
+        isDelete: collab.isDeleted || false
+      }));
+    } else {
+      // No userType filter - fetch from both models and merge
+      console.log('[COLLABORATION SERVICE] Fetching from BOTH models');
+      const studentQuery = { ...query };
+      const teacherQuery = { isDeleted: false };
+      if (search) {
+        teacherQuery.$or = [
+          { title: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ];
+      }
+      
+      // Fetch from both models
+      const studentCollabs = await model.getAllDocuments(studentQuery, { skip: 0, limit: 1000 });
+      const teacherCollabs = await TeacherCollaboration.find(teacherQuery).sort('-createdAt').lean();
+      
+      console.log('[COLLABORATION SERVICE] Found', studentCollabs.length, 'student collaborations and', teacherCollabs.length, 'teacher collaborations');
+      
+      // Add metadata to teacher collaborations
+      const teacherCollabsWithMeta = teacherCollabs.map(collab => ({
+        ...collab,
+        userType: 'TEACHER',
+        createdByModel: 'Teacher',
+        isApproved: true,
+        isDelete: collab.isDeleted || false
+      }));
+      
+      // Merge and sort by createdAt
+      const allCollabs = [...studentCollabs, ...teacherCollabsWithMeta]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      totalCount = allCollabs.length;
+      
+      // Apply pagination to merged results
+      savedData = allCollabs.slice(skip, skip + limit);
+    }
 
     // Populate user data for each collaboration
     const populatedData = await Promise.all(
       savedData.map(async (collaboration) => {
         if (collaboration.createdBy) {
-          const UserModel = collaboration.userType === 'TEACHER' ? 
+          const UserModel = collaboration.userType === 'TEACHER' || collaboration.createdByModel === 'Teacher' ? 
             require('../Teachers/teacherModel') : 
             require('../Students/studentModel');
           
@@ -205,6 +280,8 @@ const collaborationService = {
         return collaboration;
       })
     );
+
+    console.log('[COLLABORATION SERVICE] Returning', populatedData.length, 'collaborations to admin');
 
     return { savedData: populatedData, totalCount, currentPage: page, totalPages: Math.ceil(totalCount / limit) };
   },

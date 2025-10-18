@@ -425,33 +425,78 @@ const consultancyService = {
     // Then manually populate the student and card data
     const Student = require("../Students/studentModel");
     const ConsultancyCard = require("../ConsultancyCard/consultancyCardModel");
+    const PaymentRequest = require("../PaymentRequests/paymentRequestModel");
+    
+    // Convert bookings to plain objects and add payment request status
+    const bookingsWithPaymentStatus = [];
     
     for (let booking of bookings) {
-      if (booking.studentId) {
-        const student = await Student.findById(booking.studentId).select('firstName lastName email');
-        booking.studentId = student;
+      // Convert Mongoose document to plain object
+      const bookingObj = booking.toObject ? booking.toObject() : { ...booking };
+      
+      if (bookingObj.studentId) {
+        const student = await Student.findById(bookingObj.studentId).select('firstName lastName email');
+        bookingObj.studentId = student;
       }
-      if (booking.cardId) {
-        const card = await ConsultancyCard.findById(booking.cardId).select('title description pricing teacherId');
-        booking.cardId = card;
+      if (bookingObj.cardId) {
+        const card = await ConsultancyCard.findById(bookingObj.cardId).select('title description pricing teacherId');
+        bookingObj.cardId = card;
       }
+      
+      // Check if payment request already exists for this booking
+      if (bookingObj.status === 'completed') {
+        const existingPaymentRequest = await PaymentRequest.findOne({ 
+          consultancyId: bookingObj._id,
+          status: { $in: ['pending', 'approved'] } // Only active payment requests
+        });
+        
+        console.log(`Checking payment request for booking ${bookingObj._id}:`, existingPaymentRequest ? 'FOUND' : 'NOT FOUND');
+        
+        if (existingPaymentRequest) {
+          bookingObj.paymentRequested = true;
+          bookingObj.paymentRequestId = existingPaymentRequest._id;
+          bookingObj.paymentRequestStatus = existingPaymentRequest.status;
+          console.log(`Payment request status for booking ${bookingObj._id}:`, {
+            paymentRequested: true,
+            paymentRequestId: existingPaymentRequest._id,
+            paymentRequestStatus: existingPaymentRequest.status
+          });
+        } else {
+          bookingObj.paymentRequested = false;
+          bookingObj.paymentRequestId = null;
+          bookingObj.paymentRequestStatus = null;
+        }
+      } else {
+        // For non-completed bookings, set payment flags to false
+        bookingObj.paymentRequested = false;
+        bookingObj.paymentRequestId = null;
+        bookingObj.paymentRequestStatus = null;
+      }
+      
+      bookingsWithPaymentStatus.push(bookingObj);
     }
     
     // Get total count for pagination
     const totalCount = await model.model.countDocuments(query);
     const totalPages = Math.ceil(totalCount / limit);
 
-    console.log('Found expert bookings:', bookings.length);
-    if (bookings.length > 0) {
-      console.log('Sample expert booking data:', JSON.stringify(bookings[0], null, 2));
-      console.log('Student data in booking:', bookings[0].studentId);
-      console.log('Student firstName:', bookings[0].studentId?.firstName);
-      console.log('Student lastName:', bookings[0].studentId?.lastName);
-      console.log('Student email:', bookings[0].studentId?.email);
+    console.log('Found expert bookings:', bookingsWithPaymentStatus.length);
+    if (bookingsWithPaymentStatus.length > 0) {
+      console.log('Sample expert booking data:', {
+        _id: bookingsWithPaymentStatus[0]._id,
+        status: bookingsWithPaymentStatus[0].status,
+        paymentRequested: bookingsWithPaymentStatus[0].paymentRequested,
+        paymentRequestId: bookingsWithPaymentStatus[0].paymentRequestId,
+        paymentRequestStatus: bookingsWithPaymentStatus[0].paymentRequestStatus
+      });
+      console.log('Student data in booking:', bookingsWithPaymentStatus[0].studentId);
+      console.log('Student firstName:', bookingsWithPaymentStatus[0].studentId?.firstName);
+      console.log('Student lastName:', bookingsWithPaymentStatus[0].studentId?.lastName);
+      console.log('Student email:', bookingsWithPaymentStatus[0].studentId?.email);
     }
 
     return {
-      bookings,
+      bookings: bookingsWithPaymentStatus,
       pagination: {
         currentPage: parseInt(page),
         totalPages,

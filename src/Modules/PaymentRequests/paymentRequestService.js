@@ -13,11 +13,22 @@ const paymentRequestService = {
   create: async (data) => {
     const { consultancyId, teacherId, studentId, amount, consultancyTitle, studentName } = data;
     
-    // Check if payment request already exists for this consultancy
-    const existingRequest = await model.getDocument({ consultancyId });
+    console.log('Creating payment request for consultancyId:', consultancyId);
+    
+    // Check if payment request already exists for this consultancy (only check pending/approved/processing requests)
+    const query = { 
+      consultancyId,
+      status: { $in: ['pending', 'approved'] } // Only check active requests, not paid/rejected
+    };
+    console.log('query', query);
+    
+    const existingRequest = await model.getDocument(query);
     if (existingRequest) {
+      console.log('Existing payment request found:', existingRequest._id, 'with status:', existingRequest.status);
       throw new CustomError(400, "Payment request already exists for this consultancy");
     }
+    
+    console.log('No existing payment request found, creating new one...');
     
     const paymentRequestData = {
       consultancyId,
@@ -30,7 +41,7 @@ const paymentRequestService = {
     };
     
     const paymentRequest = await model.save(paymentRequestData);
-    console.log('Payment request created:', paymentRequest);
+    console.log('Payment request created successfully:', paymentRequest._id);
     
     return paymentRequest;
   },

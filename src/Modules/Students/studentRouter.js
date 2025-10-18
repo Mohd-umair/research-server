@@ -8,6 +8,7 @@ const router = require('express').Router();
 router.post("/create" , studentCtrl.create)
 router.post("/signIn" , studentCtrl.signIn)
 router.get("/verify", studentCtrl.verifyEmail);
+router.post("/verify-email", studentCtrl.verifyEmailExists);
 router.post("/forgot-password", studentCtrl.forgotPassword);
 router.post("/reset-password", studentCtrl.resetPassword);
 

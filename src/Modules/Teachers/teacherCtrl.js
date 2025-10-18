@@ -211,20 +211,45 @@ const teacherCtrl = {
     });
   }),
 
-  resetPassword: asyncHandler(async (req, res, next) => {
-    const { token, newPassword } = req.body;
+  verifyEmailExists: asyncHandler(async (req, res, next) => {
+    const { email } = req.body;
     
-    if (!token || !newPassword) {
-      throw new CustomError(400, "Reset token and new password are required");
+    if (!email) {
+      throw new CustomError(400, "Email is required");
     }
     
-    const result = await TeacherService.resetPassword(token, newPassword);
+    const result = await TeacherService.verifyEmailExists(email);
     
     return successResponse({
       res,
-      data: null,
-      msg: result.message,
+      data: result,
+      msg: "Email verified successfully",
     });
+  }),
+
+  resetPassword: asyncHandler(async (req, res, next) => {
+    const { email, newPassword, token } = req.body;
+    
+    // Support both old token-based and new email-based reset
+    if (token && newPassword) {
+      // Old token-based flow
+      const result = await TeacherService.resetPassword(token, newPassword);
+      return successResponse({
+        res,
+        data: null,
+        msg: result.message,
+      });
+    } else if (email && newPassword) {
+      // New email-based flow
+      const result = await TeacherService.resetPasswordByEmail(email, newPassword);
+      return successResponse({
+        res,
+        data: null,
+        msg: result.message,
+      });
+    } else {
+      throw new CustomError(400, "Email and new password are required");
+    }
   }),
 };
 

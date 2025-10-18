@@ -16,6 +16,7 @@ router.post("/delete" , teacherCtrl.delete)
 router.post("/update" , teacherCtrl.update)
 router.post("/signIn" , teacherCtrl.signIn)
 router.post("/isApproved",verifyToken,teacherCtrl.approvedTeacher)
+router.post("/verify-email", teacherCtrl.verifyEmailExists);
 router.post("/forgot-password", teacherCtrl.forgotPassword);
 router.post("/reset-password", teacherCtrl.resetPassword);
 
