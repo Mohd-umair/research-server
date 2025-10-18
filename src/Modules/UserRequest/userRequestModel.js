@@ -4,7 +4,7 @@ const userRequestSchema = new mongoose.Schema(
   {
     requestBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Teacher", // or "User" depending on your user model
+      ref: "Student",
       required: true,
     },
     type: {

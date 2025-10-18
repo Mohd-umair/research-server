@@ -154,7 +154,66 @@ const studentService = {
     return { message: "If an account with that email exists, a password reset link has been sent." };
   }),
 
-  // Reset password with token
+  // Verify if email exists in database
+  verifyEmailExists: serviceHandler(async (email) => {
+    if (!email) {
+      throw new CustomError("Email is required.", 400);
+    }
+
+    const filter = { email: email.toLowerCase().trim(), isDelete: { $ne: true } };
+    const student = await model.getDocument(filter);
+
+    if (!student) {
+      throw new CustomError("Email not found.", 404);
+    }
+
+    return { 
+      exists: true, 
+      email: student.email,
+      firstName: student.firstName,
+      lastName: student.lastName
+    };
+  }),
+
+  // Reset password by email (without token)
+  resetPasswordByEmail: serviceHandler(async (email, newPassword) => {
+    if (!email || !newPassword) {
+      throw new CustomError("Email and new password are required.", 400);
+    }
+
+    if (newPassword.length < 6) {
+      throw new CustomError("Password must be at least 6 characters long.", 400);
+    }
+
+    // Find student by email
+    const filter = {
+      email: email.toLowerCase().trim(),
+      isDelete: { $ne: true }
+    };
+    
+    const student = await model.getDocument(filter);
+
+    if (!student) {
+      throw new CustomError("Email not found.", 404);
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password
+    await model.updateDocument(
+      { _id: student._id },
+      {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null
+      }
+    );
+
+    return { message: "Password has been reset successfully." };
+  }),
+
+  // Reset password with token (legacy support)
   resetPassword: serviceHandler(async (token, newPassword) => {
     if (!token || !newPassword) {
       throw new CustomError("Reset token and new password are required.", 400);

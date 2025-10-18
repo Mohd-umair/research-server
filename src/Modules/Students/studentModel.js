@@ -89,7 +89,7 @@ const studentSchema = new mongoose.Schema(
 
     isActive: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     isDelete: {
       type: Boolean,

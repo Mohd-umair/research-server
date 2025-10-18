@@ -18,36 +18,15 @@ const userRequestValidationRules = () => {
       .notEmpty()
       .withMessage('Lab needs description is required for lab requests'),
     
-    // Document validations - either DOI or other details required
+    // Document validations - all optional
     body('documentDoi')
-      .if(body('type').equals('Document'))
-      .custom((value, { req }) => {
-        // If DOI is not provided, other document fields should be provided
-        if (!value && !req.body.documentTitle && !req.body.documentType) {
-          throw new Error('Either DOI or document details (title, type) are required');
-        }
-        return true;
-      }),
+      .optional(),
     
     body('documentTitle')
-      .if(body('type').equals('Document'))
-      .custom((value, { req }) => {
-        // If no DOI, title is required
-        if (!req.body.documentDoi && !value) {
-          throw new Error('Document title is required when DOI is not provided');
-        }
-        return true;
-      }),
+      .optional(),
     
     body('documentType')
-      .if(body('type').equals('Document'))
-      .custom((value, { req }) => {
-        // If no DOI, type is required
-        if (!req.body.documentDoi && !value) {
-          throw new Error('Document type is required when DOI is not provided');
-        }
-        return true;
-      }),
+      .optional(),
     
     // Data validations
     body('dataType')
@@ -94,14 +73,10 @@ const userRequestValidationRules = () => {
       .withMessage('Additional info must not exceed 500 characters'),
     
     body('documentPublisher')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('Publisher name must not exceed 100 characters'),
+      .optional(),
     
     body('documentAuthor')
-      .optional()
-      .isLength({ max: 100 })
-      .withMessage('Author name must not exceed 100 characters'),
+      .optional(),
     
     body('documentPublishedDate')
       .optional()
