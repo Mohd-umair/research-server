@@ -350,14 +350,49 @@ const collaborationService = {
       ];
     }
 
-    const savedData = await model.getAllDocuments(query, { skip, limit });
-    const totalCount = await model.totalCounts(query);
+    console.log('[COLLABORATION SERVICE] Fetching approved collaborations for public/website');
+
+    // Fetch from both Collaboration (student) model and TeacherCollaboration model
+    const TeacherCollaboration = require('./teacherCollaborationModel');
+    
+    // Build teacher query (teacher collaborations don't have isApproved field, they're all approved by default)
+    const teacherQuery = { isDeleted: false };
+    if (search) {
+      teacherQuery.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+    
+    // Fetch from both models
+    const studentCollabs = await model.getAllDocuments(query, { skip: 0, limit: 1000 });
+    const teacherCollabs = await TeacherCollaboration.find(teacherQuery).sort('-createdAt').lean();
+    
+    console.log('[COLLABORATION SERVICE] Found', studentCollabs.length, 'approved student collaborations and', teacherCollabs.length, 'teacher collaborations');
+    
+    // Add metadata to teacher collaborations
+    const teacherCollabsWithMeta = teacherCollabs.map(collab => ({
+      ...collab,
+      userType: 'TEACHER',
+      createdByModel: 'Teacher',
+      isApproved: true,
+      isDelete: collab.isDeleted || false
+    }));
+    
+    // Merge and sort by createdAt
+    const allCollabs = [...studentCollabs, ...teacherCollabsWithMeta]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    const totalCount = allCollabs.length;
+    
+    // Apply pagination to merged results
+    const savedData = allCollabs.slice(skip, skip + limit);
 
     // Populate user data for each collaboration
     const populatedData = await Promise.all(
       savedData.map(async (collaboration) => {
         if (collaboration.createdBy) {
-          const UserModel = collaboration.userType === 'TEACHER' ? 
+          const UserModel = collaboration.userType === 'TEACHER' || collaboration.createdByModel === 'Teacher' ? 
             require('../Teachers/teacherModel') : 
             require('../Students/studentModel');
           
@@ -374,6 +409,8 @@ const collaborationService = {
         return collaboration;
       })
     );
+
+    console.log('[COLLABORATION SERVICE] Returning', populatedData.length, 'approved collaborations for website');
 
     return { savedData: populatedData, totalCount, currentPage: page, totalPages: Math.ceil(totalCount / limit) };
   },
