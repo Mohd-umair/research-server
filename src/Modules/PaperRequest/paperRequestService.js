@@ -224,6 +224,7 @@ const paperRequestService = {
           status: "Approved",
           'adminResponse.responseMessage': `Your document request has been fulfilled. Document: "${paperDetail.title}" has been uploaded and is now available.`,
           'adminResponse.respondedBy': uploadedBy,
+          'adminResponse.respondedByModel': 'Student', // Specify that the uploader is a Student
           'adminResponse.responseDate': new Date(),
           // Add attachment information to the user request
           $push: {

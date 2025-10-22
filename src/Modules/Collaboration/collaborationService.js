@@ -104,7 +104,12 @@ const collaborationService = {
   },
 
   deleteCollaboration: async (paperId) => {
-    return await model.deleteDocument({ _id :paperId });
+    // Use soft delete instead of hard delete
+    return await model.updateDocument(
+      { _id: paperId },
+      { isDelete: true, deletedAt: new Date() },
+      { new: true }
+    );
   },
 
   getCollaborationsByStudentId: async (studentId, userType = 'USER') => {
@@ -181,83 +186,13 @@ const collaborationService = {
       ];
     }
 
-    // Fetch from both Collaboration (student) model and TeacherCollaboration model
-    const TeacherCollaboration = require('./teacherCollaborationModel');
-    
-    let savedData = [];
-    let totalCount = 0;
-    
     console.log('[COLLABORATION SERVICE] Fetching collaborations for admin with filters:', { userType, isApproved, search });
+
+    // Fetch all collaborations from the unified Collaboration model
+    const savedData = await model.getAllDocuments(query, { skip, limit });
+    const totalCount = await model.totalCounts(query);
     
-    // If userType filter is applied, fetch from appropriate model only
-    if (userType === 'USER') {
-      // Only fetch from student collaborations
-      console.log('[COLLABORATION SERVICE] Fetching USER collaborations only');
-      savedData = await model.getAllDocuments(query, { skip, limit });
-      totalCount = await model.totalCounts(query);
-    } else if (userType === 'TEACHER') {
-      // Only fetch from teacher collaborations
-      console.log('[COLLABORATION SERVICE] Fetching TEACHER collaborations only');
-      const teacherQuery = { isDeleted: false };
-      if (search) {
-        teacherQuery.$or = [
-          { title: { $regex: search, $options: "i" } },
-          { description: { $regex: search, $options: "i" } },
-        ];
-      }
-      savedData = await TeacherCollaboration.find(teacherQuery)
-        .sort('-createdAt')
-        .skip(skip)
-        .limit(limit)
-        .lean();
-      totalCount = await TeacherCollaboration.countDocuments(teacherQuery);
-      
-      console.log('[COLLABORATION SERVICE] Found', savedData.length, 'teacher collaborations');
-      
-      // Add metadata for consistency with student collaborations
-      savedData = savedData.map(collab => ({
-        ...collab,
-        userType: 'TEACHER',
-        createdByModel: 'Teacher',
-        isApproved: true, // Teacher collaborations don't require approval
-        isDelete: collab.isDeleted || false
-      }));
-    } else {
-      // No userType filter - fetch from both models and merge
-      console.log('[COLLABORATION SERVICE] Fetching from BOTH models');
-      const studentQuery = { ...query };
-      const teacherQuery = { isDeleted: false };
-      if (search) {
-        teacherQuery.$or = [
-          { title: { $regex: search, $options: "i" } },
-          { description: { $regex: search, $options: "i" } },
-        ];
-      }
-      
-      // Fetch from both models
-      const studentCollabs = await model.getAllDocuments(studentQuery, { skip: 0, limit: 1000 });
-      const teacherCollabs = await TeacherCollaboration.find(teacherQuery).sort('-createdAt').lean();
-      
-      console.log('[COLLABORATION SERVICE] Found', studentCollabs.length, 'student collaborations and', teacherCollabs.length, 'teacher collaborations');
-      
-      // Add metadata to teacher collaborations
-      const teacherCollabsWithMeta = teacherCollabs.map(collab => ({
-        ...collab,
-        userType: 'TEACHER',
-        createdByModel: 'Teacher',
-        isApproved: true,
-        isDelete: collab.isDeleted || false
-      }));
-      
-      // Merge and sort by createdAt
-      const allCollabs = [...studentCollabs, ...teacherCollabsWithMeta]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
-      totalCount = allCollabs.length;
-      
-      // Apply pagination to merged results
-      savedData = allCollabs.slice(skip, skip + limit);
-    }
+    console.log('[COLLABORATION SERVICE] Found', savedData.length, 'collaborations');
 
     // Populate user data for each collaboration
     const populatedData = await Promise.all(
@@ -352,41 +287,11 @@ const collaborationService = {
 
     console.log('[COLLABORATION SERVICE] Fetching approved collaborations for public/website');
 
-    // Fetch from both Collaboration (student) model and TeacherCollaboration model
-    const TeacherCollaboration = require('./teacherCollaborationModel');
+    // Fetch all approved collaborations from the unified Collaboration model
+    const savedData = await model.getAllDocuments(query, { skip, limit });
+    const totalCount = await model.totalCounts(query);
     
-    // Build teacher query (teacher collaborations don't have isApproved field, they're all approved by default)
-    const teacherQuery = { isDeleted: false };
-    if (search) {
-      teacherQuery.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
-    }
-    
-    // Fetch from both models
-    const studentCollabs = await model.getAllDocuments(query, { skip: 0, limit: 1000 });
-    const teacherCollabs = await TeacherCollaboration.find(teacherQuery).sort('-createdAt').lean();
-    
-    console.log('[COLLABORATION SERVICE] Found', studentCollabs.length, 'approved student collaborations and', teacherCollabs.length, 'teacher collaborations');
-    
-    // Add metadata to teacher collaborations
-    const teacherCollabsWithMeta = teacherCollabs.map(collab => ({
-      ...collab,
-      userType: 'TEACHER',
-      createdByModel: 'Teacher',
-      isApproved: true,
-      isDelete: collab.isDeleted || false
-    }));
-    
-    // Merge and sort by createdAt
-    const allCollabs = [...studentCollabs, ...teacherCollabsWithMeta]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
-    const totalCount = allCollabs.length;
-    
-    // Apply pagination to merged results
-    const savedData = allCollabs.slice(skip, skip + limit);
+    console.log('[COLLABORATION SERVICE] Found', savedData.length, 'approved collaborations');
 
     // Populate user data for each collaboration
     const populatedData = await Promise.all(

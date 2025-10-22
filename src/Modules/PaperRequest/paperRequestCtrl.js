@@ -142,7 +142,7 @@ const paperRequestCtrl = {
               console.error('Cloudinary PDF upload error:', error);
               reject(error);
             } else {
-              console.log('Cloudinary PDF upload success:', result.secure_url);
+              console.log('Document uploaded successfully to Cloudinary:', result.secure_url);
               resolve(result);
             }
           }
@@ -150,7 +150,7 @@ const paperRequestCtrl = {
       });
 
       // Get the current user ID from the token
-      const uploadedBy = req.user?.id || req.user?._id;
+      const uploadedBy = req.user?.id || req.user?._id || req.decodedUser?._id || req.body.decodedUser?._id;
 
       // Generate DOI if not provided
       const doiNumber = parsedPaperDetail.doi || `DOI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

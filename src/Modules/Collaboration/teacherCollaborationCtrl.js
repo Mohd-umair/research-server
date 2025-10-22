@@ -1,6 +1,6 @@
 const successResponse = require("../../Utils/apiResponse");
 const asyncHandler = require("../../Utils/asyncHandler");
-const teacherCollaborationService = require("./teacherCollaborationService");
+const collaborationService = require("./collaborationService");
 const CustomError = require("../../Errors/CustomError");
 const { validationResult } = require("express-validator");
 
@@ -19,16 +19,20 @@ const teacherCollaborationCtrl = {
       }
 
       const collaborationData = req.body;
-      if (!collaborationData.userType) {
-        collaborationData.userType = 'TEACHER';
-      }
+      
+      // Force userType to TEACHER for teacher collaborations
+      collaborationData.userType = 'TEACHER';
+      collaborationData.createdByModel = 'Teacher';
       
       // Add teacherId from token if not provided
-      if (!collaborationData.createdBy && req.user) {
-        collaborationData.createdBy = req.user.id;
+      if (!collaborationData.createdBy && req.body.decodedUser) {
+        collaborationData.createdBy = req.body.decodedUser._id;
       }
 
-      const newCollaboration = await teacherCollaborationService.createTeacherCollaboration(
+      // Teacher collaborations also require admin approval (same as students)
+      // Do not set isApproved - let it default to false per schema
+
+      const newCollaboration = await collaborationService.createCollaboration(
         collaborationData
       );
 
@@ -54,7 +58,10 @@ const teacherCollaborationCtrl = {
       // Override createdBy to ensure we only get data for the logged-in user
       queryParams.createdBy = loggedInUserId;
       
-      const result = await teacherCollaborationService.getAllTeacherCollaborations(queryParams);
+      // Force userType to TEACHER to get only teacher collaborations
+      queryParams.userType = 'TEACHER';
+      
+      const result = await collaborationService.getAllCollaborations(queryParams);
 
       return successResponse({
         res,
@@ -82,7 +89,7 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Collaboration ID is required");
       }
 
-      const collaboration = await teacherCollaborationService.getTeacherCollaborationById(_id);
+      const collaboration = await collaborationService.getCollaborationById(_id);
 
       return successResponse({
         res,
@@ -103,7 +110,7 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Collaboration ID is required");
       }
 
-      const updatedCollaboration = await teacherCollaborationService.updateTeacherCollaboration(
+      const updatedCollaboration = await collaborationService.updateCollaboration(
         _id,
         updateData
       );
@@ -127,7 +134,7 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Collaboration ID is required");
       }
 
-      await teacherCollaborationService.deleteTeacherCollaboration(_id);
+      await collaborationService.deleteCollaboration(_id);
 
       return successResponse({
         res,
@@ -139,7 +146,7 @@ const teacherCollaborationCtrl = {
     }
   }),
 
-  // Update collaboration status (toggle isActive)
+  // Update collaboration status (toggle isActive) - Maps to isApproved for unified model
   updateStatus: asyncHandler(async (req, res, next) => {
     try {
       const { _id, isActive } = req.body;
@@ -148,9 +155,10 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Collaboration ID and isActive status are required");
       }
 
-      const updatedCollaboration = await teacherCollaborationService.updateCollaborationStatus(
+      // Map isActive to isApproved for the unified model
+      const updatedCollaboration = await collaborationService.updateCollaboration(
         _id,
-        isActive
+        { isApproved: isActive }
       );
 
       return successResponse({
@@ -172,7 +180,7 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Search query is required");
       }
 
-      const results = await teacherCollaborationService.searchTeacherCollaborations(query);
+      const results = await collaborationService.searchCollaborations(query, 'TEACHER');
 
       return successResponse({
         res,
@@ -193,13 +201,16 @@ const teacherCollaborationCtrl = {
         throw new CustomError(400, "Teacher ID is required");
       }
 
-      const collaborations = await teacherCollaborationService.getCollaborationsByTeacherId(
-        teacherId
-      );
+      const queryParams = {
+        createdBy: teacherId,
+        userType: 'TEACHER'
+      };
+
+      const result = await collaborationService.getAllCollaborations(queryParams);
 
       return successResponse({
         res,
-        data: collaborations,
+        data: result.savedData,
         msg: "Teacher's collaborations fetched successfully",
       });
     } catch (error) {
@@ -212,9 +223,18 @@ const teacherCollaborationCtrl = {
     try {
       const { teacherId } = req.body;
 
-      const statistics = await teacherCollaborationService.getCollaborationStatistics(
-        teacherId
-      );
+      const queryParams = {
+        createdBy: teacherId,
+        userType: 'TEACHER'
+      };
+
+      const result = await collaborationService.getAllCollaborations(queryParams);
+
+      const statistics = {
+        total: result.totalCount,
+        active: result.savedData.filter(c => c.isApproved).length,
+        inactive: result.savedData.filter(c => !c.isApproved).length
+      };
 
       return successResponse({
         res,
@@ -233,13 +253,16 @@ const teacherCollaborationCtrl = {
         throw new CustomError(401, "Authentication required");
       }
 
-      const collaborations = await teacherCollaborationService.getCollaborationsByTeacherId(
-        req.user.id
-      );
+      const queryParams = {
+        createdBy: req.user.id,
+        userType: 'TEACHER'
+      };
+
+      const result = await collaborationService.getAllCollaborations(queryParams);
 
       return successResponse({
         res,
-        data: collaborations,
+        data: result.savedData,
         msg: "Your collaborations fetched successfully",
       });
     } catch (error) {

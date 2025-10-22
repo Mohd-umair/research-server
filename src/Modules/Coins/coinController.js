@@ -6,15 +6,10 @@ const CoinController = {
    */
   getUserCoins: async (req, res) => {
     try {
-      console.log('🪙 getUserCoins - Request received');
-      console.log('🪙 getUserCoins - req.user:', req.user);
-      console.log('🪙 getUserCoins - req.decodedUser:', req.decodedUser);
-      
       // Try to get user info from either req.user or req.decodedUser
       const userInfo = req.user || req.decodedUser;
       
       if (!userInfo) {
-        console.error('❌ getUserCoins - No user info found');
         return res.status(401).json({
           success: false,
           message: 'User not authenticated'
@@ -23,9 +18,6 @@ const CoinController = {
       
       const userId = userInfo.id || userInfo._id;
       const userType = (userInfo.userType || 'user').toLowerCase(); // 'user' -> 'student', 'expert' -> 'expert'
-      
-      console.log('🪙 getUserCoins - userId:', userId);
-      console.log('🪙 getUserCoins - userType:', userType);
       
       const result = await CoinService.getUserCoins({
         userId,
@@ -58,15 +50,10 @@ const CoinController = {
    */
   checkRequestCreationBalance: async (req, res) => {
     try {
-      console.log('🪙 checkRequestCreationBalance - Request received');
-      console.log('🪙 checkRequestCreationBalance - req.user:', req.user);
-      console.log('🪙 checkRequestCreationBalance - req.decodedUser:', req.decodedUser);
-      
       // Try to get user info from either req.user or req.decodedUser
       const userInfo = req.user || req.decodedUser;
       
       if (!userInfo) {
-        console.error('❌ checkRequestCreationBalance - No user info found');
         return res.status(401).json({
           success: false,
           message: 'User not authenticated'
@@ -75,9 +62,6 @@ const CoinController = {
       
       const userId = userInfo.id || userInfo._id;
       const userType = (userInfo.userType || 'user').toLowerCase();
-      
-      console.log('🪙 checkRequestCreationBalance - userId:', userId);
-      console.log('🪙 checkRequestCreationBalance - userType:', userType);
       
       const result = await CoinService.getRequestCreationBalance({
         userId,

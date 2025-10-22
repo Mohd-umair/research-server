@@ -528,10 +528,14 @@ const userRequestService = {
       if (request.adminResponse && request.adminResponse.respondedBy) {
         const fulfillerId = request.adminResponse.respondedBy._id || request.adminResponse.respondedBy;
         
+        // Determine user type based on respondedByModel
+        const fulfillerType = request.adminResponse.respondedByModel === 'Student' ? 'student' : 'expert';
+        
         try {
           // Award 10 coins for fulfilling a request
           await CoinService.addCoins({
             userId: fulfillerId,
+            userType: fulfillerType,
             amount: 10,
             source: 'request_fulfillment',
             description: `Fulfilled research request: "${request.title || request.documentDetails?.title || 'Document Request'}"`,
@@ -542,7 +546,7 @@ const userRequestService = {
             }
           });
 
-          console.log(`✅ Awarded 10 coins to user ${fulfillerId} for fulfilling request ${requestId}`);
+          console.log(`✅ Awarded 10 coins to ${fulfillerType} ${fulfillerId} for fulfilling request ${requestId}`);
         } catch (coinError) {
           console.error('Error awarding coins:', coinError);
           // Don't throw error - confirmation should succeed even if coin award fails

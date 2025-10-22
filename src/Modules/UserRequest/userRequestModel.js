@@ -89,7 +89,12 @@ const userRequestSchema = new mongoose.Schema(
     adminResponse: {
       respondedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Teacher",
+        refPath: 'adminResponse.respondedByModel',
+      },
+      respondedByModel: {
+        type: String,
+        enum: ['Student', 'Teacher', 'Profile'],
+        default: 'Student'
       },
       responseMessage: String,
       responseDate: Date,
