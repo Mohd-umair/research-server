@@ -89,41 +89,25 @@ const CoinService = {
   addCoins: async (data) => {
     const { userId, userType, amount } = data;
     
-    console.log('🪙 CoinService.addCoins called with:', {
-      userId,
-      userType,
-      amount
-    });
-    
     // Determine user model based on userType
     const userModel = userType === 'student' ? 'Student' : 'Profile';
     
-    console.log('🪙 CoinService.addCoins - userModel determined:', userModel);
-    
     let coinRecord = await CoinModel.findOne({ user: userId, userModel });
-    
-    console.log('🪙 CoinService.addCoins - existing coin record:', coinRecord ? 'Found' : 'Not found');
     
     // If no coin record exists, create one
     if (!coinRecord) {
-      console.log('🪙 CoinService.addCoins - creating new coin record with 100 coins');
       coinRecord = await CoinModel.create({
         user: userId,
         userModel,
         coins: 100 // Start with 100 coins
       });
-      console.log('🪙 CoinService.addCoins - new coin record created with balance:', coinRecord.coins);
     }
-    
-    console.log('🪙 CoinService.addCoins - current balance before adding:', coinRecord.coins);
     
     // Add coins
     coinRecord.addCoins(amount);
     await coinRecord.save();
     
-    console.log('🪙 CoinService.addCoins - new balance after adding:', coinRecord.coins);
-    
-    const result = {
+    return {
       success: true,
       data: {
         userId,
@@ -133,10 +117,6 @@ const CoinService = {
         message: `Successfully added ${amount} coins. Total balance: ${coinRecord.coins} coins.`
       }
     };
-    
-    console.log('🪙 CoinService.addCoins - returning result:', result);
-    
-    return result;
   },
 
   /**
