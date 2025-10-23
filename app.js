@@ -20,30 +20,30 @@ cloudinary.config({
 const app = express();
 
 
-const corsOrigins = [
-  "http://localhost:4200", 
-  "https://localhost:4200", 
-  "http://localhost:4201", 
-  "https://localhost:4201",
-  "http://localhost:3000", 
-  "http://localhost:8080",
-  "http://localhost:3001",
-  "https://researchdecode.com", 
-    "http://researchdecode.com", 
-  "https://www.researchdecode.com",
-    "http://www.researchdecode.com", 
+// const corsOrigins = [
+//   "http://localhost:4200", 
+//   "https://localhost:4200", 
+//   "http://localhost:4201", 
+//   "https://localhost:4201",
+//   "http://localhost:3000", 
+//   "http://localhost:8080",
+//   "http://localhost:3001",
+//   "https://researchdecode.com", 
+//     "http://researchdecode.com", 
+//   "https://www.researchdecode.com",
+//     "http://www.researchdecode.com", 
  
-  "https://admin.researchdecode.com",
-  "https://srv695649.hstgr.cloud",
-  "https://srv695649.hstgr.cloud:4200",
-  "https://srv695649.hstgr.cloud:4201",
-  "http://srv695649.hstgr.cloud",
-  "http://srv695649.hstgr.cloud:4200", 
-  "http://srv695649.hstgr.cloud:4201",
-  "http://46.202.166.229",
-  "http://46.202.166.229:4200",
-  "http://46.202.166.229:4201"
-];
+//   "https://admin.researchdecode.com",
+//   "https://srv695649.hstgr.cloud",
+//   "https://srv695649.hstgr.cloud:4200",
+//   "https://srv695649.hstgr.cloud:4201",
+//   "http://srv695649.hstgr.cloud",
+//   "http://srv695649.hstgr.cloud:4200", 
+//   "http://srv695649.hstgr.cloud:4201",
+//   "http://46.202.166.229",
+//   "http://46.202.166.229:4200",
+//   "http://46.202.166.229:4201"
+// ];
 
     app.use(cors({
       origin: function (origin, callback) {
@@ -63,10 +63,10 @@ const corsOrigins = [
       maxAge: 86400 // 24 hours
     }));
 
-    // app.use(cors({
-    //   origin: '*', // allow all origins temporarily
-    //   credentials: true, // you can disable credentials for testing
-    // }));
+    app.use(cors({
+      origin: '*', // allow all origins temporarily
+      credentials: true, // you can disable credentials for testing
+    }));
 // Handle preflight requests
 app.options('*', cors());
 
