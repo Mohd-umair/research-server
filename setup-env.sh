@@ -33,8 +33,8 @@ SOCKET_PORT=5001
 NODE_ENV=prod
 
 # Payment Gateway Configuration (Razorpay)
-RAZORPAY_KEY_ID=rzp_test_jLhZZYBPKlMBn9
-RAZORPAY_SECRET=zEhFSyPXABeTkMMClwK9LxIn
+RAZORPAY_KEY_ID=rzp_live_RNsqf8kl7CeXsn
+RAZORPAY_SECRET=b54o6PNx0JBfcaMkgVkqeLJr
 RAZORPAYX_ACCOUNT_NUMBER=2323230025954705
 
 # Cloud Storage Configuration (Cloudinary)
