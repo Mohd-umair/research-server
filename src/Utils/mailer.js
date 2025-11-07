@@ -3,17 +3,62 @@ const pug = require("pug");
 const path = require("path");
 
 
-const transporter = nodemailer.createTransport({
+const fallbackEmail = "info@researchdecode.com";
+const fallbackPassword = "Web#@mail$%9956";
+const rawEmailPassword = process.env.EMAIL_PASSWORD;
+const emailPassword =
+  rawEmailPassword && rawEmailPassword.trim().length > 0
+    ? rawEmailPassword.trim()
+    : fallbackPassword;
+
+if (
+  rawEmailPassword &&
+  !rawEmailPassword.includes("#") &&
+  fallbackPassword.includes("#")
+) {
+  console.warn(
+    "[MAILER] EMAIL_PASSWORD appears to exclude special characters. " +
+      "If your real password contains '#', wrap it in quotes in the .env file."
+  );
+}
+
+const emailPort = parseInt(process.env.EMAIL_PORT || "465", 10);
+const emailSecure =
+  typeof process.env.EMAIL_SECURE !== "undefined"
+    ? process.env.EMAIL_SECURE === "true"
+    : emailPort === 465;
+
+const transporterOptions = {
   host: process.env.EMAIL_HOST || "smtp.hostinger.com",
-  port: parseInt(process.env.EMAIL_PORT || "465"),
-  secure: true,
+  port: emailPort,
+  secure: emailSecure,
   auth: {
-    user: process.env.EMAIL || "info@researchdecode.com",
-    pass: process.env.EMAIL_PASSWORD || "Web#@mail$%9956",
+    user: process.env.EMAIL || fallbackEmail,
+    pass: emailPassword,
   },
-  logger: process.env.NODE_ENV === 'development',
-  debug: process.env.NODE_ENV === 'development',
-});
+  logger: process.env.NODE_ENV === "development",
+  debug: process.env.NODE_ENV === "development",
+};
+
+if (process.env.EMAIL_AUTH_METHOD) {
+  transporterOptions.authMethod = process.env.EMAIL_AUTH_METHOD;
+}
+
+if (process.env.EMAIL_TLS_REJECT_UNAUTHORIZED === "false") {
+  transporterOptions.tls = { rejectUnauthorized: false };
+}
+
+const transporter = nodemailer.createTransport(transporterOptions);
+
+if (process.env.NODE_ENV === "development") {
+  transporter.verify((error) => {
+    if (error) {
+      console.warn("[MAILER] SMTP verification failed:", error.message);
+    } else {
+      console.info("[MAILER] SMTP server is ready to send emails.");
+    }
+  });
+}
 
 const sendVerificationEmail = async (email, token) => {
   const url = `${process.env.BASE_URL}/?token=${token}`;
