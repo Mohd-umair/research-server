@@ -4,15 +4,15 @@ const path = require("path");
 
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.hostinger.com",
-  port: 465,
+  host: process.env.EMAIL_HOST || "smtp.hostinger.com",
+  port: parseInt(process.env.EMAIL_PORT || "465"),
   secure: true,
   auth: {
-    user: "info@researchdecode.com",
-    pass: "Web#@mail$%9956",
+    user: process.env.EMAIL || "info@researchdecode.com",
+    pass: process.env.EMAIL_PASSWORD || "Web#@mail$%9956",
   },
-  logger: true,
-  debug: true,
+  logger: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === 'development',
 });
 
 const sendVerificationEmail = async (email, token) => {
@@ -70,7 +70,9 @@ const sendCustomEmail = async (email, templateName, subject, data = {}) => {
 };
 
 const sendPasswordResetEmail = async (email, resetToken, userType) => {
-  const resetUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}&userType=${userType}`;
+  // Use FRONTEND_URL first (website URL), fallback to BASE_URL, then localhost for dev
+  const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || 'http://localhost:4200';
+  const resetUrl = `${baseUrl}/auth/reset-password?token=${resetToken}&userType=${userType}`;
 
   const templatePath = path.join(__dirname, '..', 'templates', 'password-reset-email.pug');
 
