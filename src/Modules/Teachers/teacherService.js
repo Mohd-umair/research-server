@@ -246,30 +246,87 @@ const teacherServiceWithReset = {
       throw new CustomError("Email is required.", 400);
     }
 
-    const filter = { email: email.toLowerCase().trim(), isDelete: { $ne: true } };
-    const teacher = await model.getDocument(filter);
+    const normalizedEmail = email.toLowerCase().trim();
+    const filter = { email: normalizedEmail, isDelete: { $ne: true } };
+    
+    console.log('🔍 Searching for user with email:', normalizedEmail);
+    
+    // First, check in Teacher collection
+    console.log('👨‍🏫 Checking Teacher collection...');
+    let teacher = await model.getDocument(filter);
 
-    if (!teacher) {
-      // Return success even if email doesn't exist for security
+    if (teacher) {
+      console.log('✅ Teacher found:', teacher.email, 'ID:', teacher._id);
+
+      // Generate reset token
+      const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+      console.log('🔑 Generated reset token, saving to database...');
+
+      // Save reset token
+      await model.updateDocument(
+        { _id: teacher._id },
+        { 
+          resetPasswordToken: resetToken,
+          resetPasswordExpires: resetTokenExpires
+        }
+      );
+
+      console.log('💾 Reset token saved. Now sending email to:', email);
+
+      // Send reset email
+      try {
+        await sendPasswordResetEmail(email, resetToken, 'teacher');
+        console.log('✅ Password reset email sent successfully to:', email);
+      } catch (error) {
+        console.error('❌ Error sending password reset email:', error);
+      }
+
       return { message: "If an account with that email exists, a password reset link has been sent." };
     }
 
-    // Generate reset token
-    const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    // If not found in Teacher, check Student collection
+    console.log('📚 Teacher not found, checking Student collection...');
+    const Student = require("../Students/studentModel");
+    const studentDbService = require("../../Service/DbService");
+    const studentModel = new studentDbService(Student);
+    let student = await studentModel.getDocument(filter);
 
-    // Save reset token
-    await model.updateDocument(
-      { _id: teacher._id },
-      { 
-        resetPasswordToken: resetToken,
-        resetPasswordExpires: resetTokenExpires
+    if (student) {
+      console.log('✅ Student found:', student.email, 'ID:', student._id);
+
+      // Generate reset token
+      const resetToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+      console.log('🔑 Generated reset token, saving to database...');
+
+      // Save reset token
+      await studentModel.updateDocument(
+        { _id: student._id },
+        { 
+          resetPasswordToken: resetToken,
+          resetPasswordExpires: resetTokenExpires
+        }
+      );
+
+      console.log('💾 Reset token saved. Now sending email to:', email);
+
+      // Send reset email
+      try {
+        await sendPasswordResetEmail(email, resetToken, 'student');
+        console.log('✅ Password reset email sent successfully to:', email);
+      } catch (error) {
+        console.error('❌ Error sending password reset email:', error);
       }
-    );
 
-    // Send reset email
-    await sendPasswordResetEmail(email, resetToken, 'teacher');
+      return { message: "If an account with that email exists, a password reset link has been sent." };
+    }
 
+    // Not found in either collection
+    console.log('❌ Email not found in Teacher or Student collections:', email);
+    // Return success even if email doesn't exist for security
     return { message: "If an account with that email exists, a password reset link has been sent." };
   }),
 
